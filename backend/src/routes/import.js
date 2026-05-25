@@ -6,10 +6,15 @@ const router = express.Router()
 
 const upload = multer({ storage: multer.memoryStorage(), limits: { fileSize: 20 * 1024 * 1024 } })
 
-// Detect delimiter: strip BOM, check first non-empty line
-function detectDelimiter(content) {
-  const clean = content.replace(/^﻿/, '') // strip UTF-8 BOM
-  const firstLine = clean.split(/\r?\n/).find(l => l.trim()) || ''
+// Detect delimiter from raw buffer — handles BOM and all line endings
+function detectDelimiter(buffer) {
+  // Strip UTF-8 BOM (EF BB BF) directly from bytes if present
+  let start = 0
+  if (buffer[0] === 0xEF && buffer[1] === 0xBB && buffer[2] === 0xBF) start = 3
+  // Read first line from raw bytes
+  let lineEnd = buffer.indexOf(0x0A, start) // find \n
+  if (lineEnd === -1) lineEnd = buffer.length
+  const firstLine = buffer.slice(start, lineEnd).toString('utf-8').replace(/\r$/, '')
   const semis  = (firstLine.match(/;/g)  || []).length
   const commas = (firstLine.match(/,/g)  || []).length
   const tabs   = (firstLine.match(/\t/g) || []).length
@@ -21,8 +26,8 @@ function detectDelimiter(content) {
 router.post('/preview', upload.single('file'), (req, res) => {
   if (!req.file) return res.status(400).json({ error: 'No file' })
   try {
-    const content = req.file.buffer.toString('utf-8')
-    const delimiter = detectDelimiter(content)
+    const delimiter = detectDelimiter(req.file.buffer)
+    const content = req.file.buffer.toString('utf-8').replace(/^﻿/, '')
     const records = parse(content, {
       columns: true, skip_empty_lines: true, trim: true, relax_column_count: true, delimiter,
     })
@@ -44,8 +49,8 @@ router.post('/execute', upload.single('file'), async (req, res) => {
 
   let records
   try {
-    const content = req.file.buffer.toString('utf-8')
-    const delimiter = detectDelimiter(content)
+    const delimiter = detectDelimiter(req.file.buffer)
+    const content = req.file.buffer.toString('utf-8').replace(/^﻿/, '')
     records = parse(content, {
       columns: true, skip_empty_lines: true, trim: true, relax_column_count: true, delimiter,
     })
