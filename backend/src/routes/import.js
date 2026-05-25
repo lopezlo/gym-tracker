@@ -77,7 +77,7 @@ router.post('/execute', upload.single('file'), async (req, res) => {
 
         const weight   = columnMap.weight   ? (parseFloat(row[columnMap.weight])  || null) : null
         const reps     = columnMap.reps     ? (parseInt(row[columnMap.reps])       || null) : null
-        const duration = columnMap.duration ? (parseInt(row[columnMap.duration])   || null) : null
+        const duration = columnMap.duration ? (Math.round((parseFloat(row[columnMap.duration]) || 0) * 60) || null) : null
 
         await client.query(`
           INSERT INTO sets (session_id, exercise_id, weight, reps, duration, recorded_at, set_order)
