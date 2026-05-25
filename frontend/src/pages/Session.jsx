@@ -7,7 +7,8 @@ import ExerciseSelector from '../components/ExerciseSelector'
 import ConfirmModal from '../components/ConfirmModal'
 import dayjs from 'dayjs'
 
-const toUTC = (s) => s ? new Date(s.replace(' ', 'T') + 'Z') : null
+// PostgreSQL returns ISO 8601 with Z/offset; SQLite used space without tz
+const toUTC = (s) => s ? new Date(/Z$|[+-]\d{2}/.test(s) ? s : s.replace(' ', 'T') + 'Z') : null
 
 function useTimer(startIso) {
   const [elapsed, setElapsed] = useState(0)
@@ -96,7 +97,7 @@ export default function Session() {
         setWeight(lastInSession.weight != null ? String(lastInSession.weight) : '')
         setReps(lastInSession.reps != null ? String(lastInSession.reps) : '')
       } else {
-        setDuration(lastInSession.duration != null ? String(lastInSession.duration) : '')
+        setDuration(lastInSession.duration != null ? String(lastInSession.duration / 60) : '')
       }
     } else {
       api.getLastSet(currentExercise.id, user.id).then(last => {
@@ -105,7 +106,7 @@ export default function Session() {
           setWeight(last.weight != null ? String(last.weight) : '')
           setReps(last.reps != null ? String(last.reps) : '')
         } else {
-          setDuration(last.duration != null ? String(last.duration) : '')
+          setDuration(last.duration != null ? String(last.duration / 60) : '')
         }
       }).catch(() => { setWeight(''); setReps(''); setDuration('') })
     }
@@ -125,7 +126,7 @@ export default function Session() {
         if (weight) payload.weight = parseFloat(weight)
         if (reps) payload.reps = parseInt(reps)
       } else {
-        if (duration) payload.duration = parseInt(duration)
+        if (duration) payload.duration = Math.round(parseFloat(duration) * 60)
       }
       const newSet = await api.addSet(id, payload)
       setSets(prev => [...prev, newSet])
@@ -164,7 +165,11 @@ export default function Session() {
   })
 
   const fmtSet = (s) => {
-    if (s.exercise_type === 'time') return s.duration ? `${s.duration}s` : '—'
+    if (s.exercise_type === 'time') {
+      if (!s.duration) return '—'
+      const mins = s.duration / 60
+      return `${Number.isInteger(mins) ? mins : mins.toFixed(1)} min`
+    }
     const parts = []
     if (s.weight != null) parts.push(`${s.weight}kg`)
     if (s.reps != null) parts.push(`×${s.reps}`)
@@ -260,21 +265,17 @@ export default function Session() {
                   </div>
                 ) : (
                   <div className="space-y-1.5">
-                    <label className="text-xs text-slate-400 font-medium">Duración (segundos)</label>
+                    <label className="text-xs text-slate-400 font-medium">Duración (min)</label>
                     <div className="flex items-center gap-2">
-                      <button onClick={() => step(duration, setDuration, -30)} className="w-10 h-10 bg-slate-700 hover:bg-slate-600 rounded-xl text-white font-bold flex-shrink-0 transition-colors">−</button>
+                      <button onClick={() => step(duration, setDuration, -0.5, true)} className="w-10 h-10 bg-slate-700 hover:bg-slate-600 rounded-xl text-white font-bold flex-shrink-0 transition-colors">−</button>
                       <input
-                        type="number" inputMode="numeric" value={duration}
+                        type="number" inputMode="decimal" value={duration}
                         onChange={e => setDuration(e.target.value)} placeholder="0"
+                        step="0.5"
                         className="flex-1 bg-slate-700 text-white text-center rounded-xl py-2.5 outline-none focus:ring-2 focus:ring-amber-500 text-lg font-bold"
                       />
-                      <button onClick={() => step(duration, setDuration, 30)} className="w-10 h-10 bg-slate-700 hover:bg-slate-600 rounded-xl text-white font-bold flex-shrink-0 transition-colors">+</button>
+                      <button onClick={() => step(duration, setDuration, 0.5, true)} className="w-10 h-10 bg-slate-700 hover:bg-slate-600 rounded-xl text-white font-bold flex-shrink-0 transition-colors">+</button>
                     </div>
-                    {duration > 0 && (
-                      <p className="text-center text-slate-400 text-xs">
-                        {Math.floor(duration / 60)}:{String(duration % 60).padStart(2, '0')} min
-                      </p>
-                    )}
                   </div>
                 )}
 

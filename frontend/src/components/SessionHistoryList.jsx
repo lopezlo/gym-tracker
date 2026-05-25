@@ -16,14 +16,18 @@ function groupByExercise(sets) {
 }
 
 function fmtSetLabel(s) {
-  if (s.exercise_type === 'time') return s.duration ? `${s.duration}s` : '—'
+  if (s.exercise_type === 'time') {
+    if (!s.duration) return '—'
+    const mins = s.duration / 60
+    return `${Number.isInteger(mins) ? mins : mins.toFixed(1)} min`
+  }
   const parts = []
   if (s.weight != null) parts.push(`${s.weight}kg`)
   if (s.reps != null) parts.push(`×${s.reps}`)
   return parts.join(' ') || '—'
 }
 
-const toUTC = (str) => str ? new Date(str.replace(' ', 'T') + 'Z') : null
+const toUTC = (str) => str ? new Date(/Z$|[+-]\d{2}/.test(str) ? str : str.replace(' ', 'T') + 'Z') : null
 
 function fmtSessionDuration(s) {
   if (!s.started_at || !s.ended_at) return null
@@ -86,7 +90,7 @@ export default function SessionHistoryList({ userId, onDataChanged }) {
     setEditValues({
       weight: set.weight != null ? String(set.weight) : '',
       reps: set.reps != null ? String(set.reps) : '',
-      duration: set.duration != null ? String(set.duration) : '',
+      duration: set.duration != null ? String(set.duration / 60) : '',
       time: `${pad(d.getHours())}:${pad(d.getMinutes())}`,
     })
   }
@@ -103,7 +107,7 @@ export default function SessionHistoryList({ userId, onDataChanged }) {
       const updated = await api.updateSet(set.id, {
         weight: editValues.weight !== '' ? parseFloat(editValues.weight) : null,
         reps: editValues.reps !== '' ? parseInt(editValues.reps) : null,
-        duration: editValues.duration !== '' ? parseInt(editValues.duration) : null,
+        duration: editValues.duration !== '' ? Math.round(parseFloat(editValues.duration) * 60) : null,
         ...(recorded_at ? { recorded_at } : {}),
       })
       setDetails(prev => ({
@@ -332,10 +336,10 @@ export default function SessionHistoryList({ userId, onDataChanged }) {
                                   </>
                                 ) : (
                                   <input
-                                    type="number" inputMode="numeric"
+                                    type="number" inputMode="decimal"
                                     value={editValues.duration}
                                     onChange={e => setEditValues(p => ({ ...p, duration: e.target.value }))}
-                                    placeholder="seg"
+                                    placeholder="min" step="0.5"
                                     className="w-16 bg-slate-600 text-white text-xs rounded-lg px-2 py-1.5 outline-none text-center"
                                   />
                                 )}
