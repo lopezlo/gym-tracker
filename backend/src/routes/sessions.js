@@ -8,11 +8,11 @@ router.get('/stats/:userId', async (req, res) => {
   try {
     const { rows: calendarData } = await pool.query(`
       SELECT
-        DATE(started_at)                                                        AS date,
-        COUNT(*)                                                                AS session_count,
-        SUM(CASE WHEN ended_at IS NOT NULL
+        TO_CHAR(DATE(started_at), 'YYYY-MM-DD')                                 AS date,
+        COUNT(*)::INTEGER                                                        AS session_count,
+        COALESCE(SUM(CASE WHEN ended_at IS NOT NULL
           THEN EXTRACT(EPOCH FROM (ended_at - started_at))::INTEGER / 60
-          ELSE 0 END)                                                           AS total_minutes
+          ELSE 0 END), 0)::INTEGER                                               AS total_minutes
       FROM sessions
       WHERE user_id = $1 AND started_at >= NOW() - INTERVAL '13 months'
       GROUP BY DATE(started_at)
@@ -22,7 +22,7 @@ router.get('/stats/:userId', async (req, res) => {
     const { rows: exerciseProgress } = await pool.query(`
       SELECT
         st.id,
-        DATE(st.recorded_at)  AS date,
+        TO_CHAR(DATE(st.recorded_at), 'YYYY-MM-DD') AS date,
         st.recorded_at,
         e.id                  AS exercise_id,
         e.name                AS exercise_name,

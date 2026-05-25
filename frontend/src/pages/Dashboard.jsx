@@ -27,7 +27,7 @@ export default function Dashboard() {
       setStats(s)
       if (active.length > 0) {
         const session = active[0]
-        const start = new Date(session.started_at.replace(' ', 'T') + 'Z')
+        const start = new Date(/Z$|[+-]\d{2}/.test(session.started_at) ? session.started_at : session.started_at.replace(' ', 'T') + 'Z')
         const hoursOld = (Date.now() - start.getTime()) / 3600000
         if (hoursOld > 12) {
           api.endSession(session.id).then(() => setActiveSession(null))
