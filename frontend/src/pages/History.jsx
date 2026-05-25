@@ -1,5 +1,6 @@
 import { useState, useEffect } from 'react'
-import { BarChart2, Clock, Flame } from 'lucide-react'
+import { useNavigate } from 'react-router-dom'
+import { BarChart2, Clock, Flame, LogOut } from 'lucide-react'
 import { api } from '../api/client'
 import { useApp } from '../context/AppContext'
 import CalendarHeatmap from '../components/CalendarHeatmap'
@@ -7,7 +8,8 @@ import ProgressChart from '../components/ProgressChart'
 import dayjs from 'dayjs'
 
 export default function History() {
-  const { user } = useApp()
+  const { user, logout } = useApp()
+  const navigate = useNavigate()
   const [stats, setStats] = useState(null)
   const [loading, setLoading] = useState(true)
 
@@ -40,11 +42,35 @@ export default function History() {
     return m > 0 ? `${h}h ${m}m` : `${h}h`
   }
 
+  const COLORS = ['bg-indigo-500', 'bg-violet-500', 'bg-pink-500', 'bg-emerald-500', 'bg-amber-500', 'bg-sky-500', 'bg-rose-500', 'bg-teal-500']
+  const colorFor = (id) => COLORS[id % COLORS.length]
+  const initials = (name) => name.split(' ').map(w => w[0]).join('').toUpperCase().slice(0, 2)
+
   return (
-    <div className="h-full scrollable no-scrollbar px-4 pt-6 pb-4 space-y-6">
-      <div className="flex items-center gap-2">
-        <BarChart2 size={20} className="text-indigo-400" />
-        <h1 className="text-white font-bold text-xl">Progreso</h1>
+    <div className="h-full flex flex-col overflow-hidden">
+    <div className="flex-1 scrollable no-scrollbar px-4 pt-6 pb-4 space-y-6">
+
+      {/* Header */}
+      <div className="flex items-center justify-between">
+        <div className="flex items-center gap-3">
+          <button
+            onClick={() => navigate('/')}
+            className={`w-10 h-10 rounded-xl ${colorFor(user.id)} flex items-center justify-center font-bold text-white text-xs overflow-hidden flex-shrink-0`}
+            title="Cambiar usuario"
+          >
+            {user.avatar
+              ? <img src={user.avatar} alt={user.name} className="w-full h-full rounded-xl object-cover" />
+              : initials(user.name)
+            }
+          </button>
+          <div>
+            <p className="text-slate-400 text-xs">Progreso de</p>
+            <h1 className="text-white font-bold leading-tight">{user.name}</h1>
+          </div>
+        </div>
+        <button onClick={logout} className="p-2 text-slate-500 hover:text-white transition-colors">
+          <LogOut size={18} />
+        </button>
       </div>
 
       {loading ? (
@@ -81,6 +107,7 @@ export default function History() {
           </div>
         </>
       )}
+    </div>
     </div>
   )
 }

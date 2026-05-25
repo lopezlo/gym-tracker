@@ -144,7 +144,11 @@ export default function Session() {
   const handleEnd = async () => {
     setEnding(true)
     try {
-      await api.endSession(id)
+      if (sets.length === 0) {
+        await api.deleteSession(id)
+      } else {
+        await api.endSession(id)
+      }
       setActiveSession(null)
       navigate('/dashboard')
     } catch (e) { alert(e.message); setEnding(false) }

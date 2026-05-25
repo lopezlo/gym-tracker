@@ -62,12 +62,16 @@ export default function Dashboard() {
         {/* Header */}
         <div className="flex items-center justify-between">
           <div className="flex items-center gap-3">
-            <div className={`w-10 h-10 rounded-xl ${colorFor(user.id)} flex items-center justify-center font-bold text-white text-xs`}>
+            <button
+              onClick={() => navigate('/')}
+              className={`w-10 h-10 rounded-xl ${colorFor(user.id)} flex items-center justify-center font-bold text-white text-xs overflow-hidden flex-shrink-0`}
+              title="Cambiar usuario"
+            >
               {user.avatar
                 ? <img src={user.avatar} alt={user.name} className="w-full h-full rounded-xl object-cover" />
                 : initials(user.name)
               }
-            </div>
+            </button>
             <div>
               <p className="text-slate-400 text-xs">Bienvenido,</p>
               <h1 className="text-white font-bold leading-tight">{user.name}</h1>

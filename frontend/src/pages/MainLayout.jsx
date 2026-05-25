@@ -8,7 +8,9 @@ export default function MainLayout() {
   const { user, activeSessionId, setActiveSession } = useApp()
   const navigate = useNavigate()
   const [showStartModal, setShowStartModal] = useState(false)
+  const [showEndModal, setShowEndModal] = useState(false)
   const [starting, setStarting] = useState(false)
+  const [ending, setEnding] = useState(false)
 
   useEffect(() => {
     if (!user) navigate('/', { replace: true })
@@ -18,9 +20,28 @@ export default function MainLayout() {
 
   const handleCenterPress = () => {
     if (activeSessionId) {
-      navigate(`/session/${activeSessionId}`)
+      setShowEndModal(true)
     } else {
       setShowStartModal(true)
+    }
+  }
+
+  const handleEndSession = async () => {
+    setEnding(true)
+    try {
+      const session = await api.getSession(activeSessionId)
+      if (!session.sets || session.sets.length === 0) {
+        await api.deleteSession(activeSessionId)
+      } else {
+        await api.endSession(activeSessionId)
+      }
+      setActiveSession(null)
+      setShowEndModal(false)
+      navigate('/dashboard')
+    } catch (e) {
+      alert(e.message)
+    } finally {
+      setEnding(false)
     }
   }
 
@@ -158,6 +179,41 @@ export default function MainLayout() {
 
         </div>
       </nav>
+
+      {/* ── End session modal ── */}
+      {showEndModal && (
+        <div className="fixed inset-0 z-50 flex items-end">
+          <div className="absolute inset-0 bg-black/70" onClick={() => !ending && setShowEndModal(false)} />
+          <div className="relative w-full bg-slate-800 rounded-t-3xl p-6 space-y-5">
+            <div className="absolute top-3 left-1/2 -translate-x-1/2 w-10 h-1 bg-slate-600 rounded-full" />
+            <div className="pt-2 flex items-center gap-4">
+              <div className="w-12 h-12 rounded-2xl bg-red-500/15 flex items-center justify-center flex-shrink-0">
+                <Activity size={22} className="text-red-400" />
+              </div>
+              <div>
+                <h2 className="text-white font-bold text-lg leading-tight">¿Finalizar sesión?</h2>
+                <p className="text-slate-400 text-sm mt-0.5">Se guardará el progreso registrado</p>
+              </div>
+            </div>
+            <div className="grid grid-cols-2 gap-3">
+              <button
+                onClick={() => { setShowEndModal(false); navigate(`/session/${activeSessionId}`) }}
+                disabled={ending}
+                className="py-3.5 bg-slate-700 hover:bg-slate-600 disabled:opacity-50 text-white rounded-xl font-semibold transition-colors"
+              >
+                Ver sesión
+              </button>
+              <button
+                onClick={handleEndSession}
+                disabled={ending}
+                className="py-3.5 bg-red-600 hover:bg-red-500 disabled:opacity-60 text-white rounded-xl font-semibold transition-colors"
+              >
+                {ending ? 'Finalizando…' : 'Finalizar'}
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
 
       {/* ── Start session modal ── */}
       {showStartModal && (
