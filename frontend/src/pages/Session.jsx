@@ -350,21 +350,26 @@ export default function Session() {
       {/* End session confirm */}
       {showEndConfirm && (
         <div className="fixed inset-0 z-50 flex items-end">
-          <div className="absolute inset-0 bg-black/60" onClick={() => setShowEndConfirm(false)} />
-          <div className="relative w-full bg-slate-800 rounded-t-3xl p-6 space-y-4">
-            <div className="flex justify-center">
-              <CheckCircle size={40} className="text-emerald-400" />
+          <div className="absolute inset-0 bg-black/70" onClick={() => !ending && setShowEndConfirm(false)} />
+          <div className="relative w-full bg-slate-800 rounded-t-3xl p-6 space-y-5">
+            <div className="absolute top-3 left-1/2 -translate-x-1/2 w-10 h-1 bg-slate-600 rounded-full" />
+            <div className="pt-2 flex items-center gap-4">
+              <div className="w-12 h-12 rounded-2xl bg-red-500/15 flex items-center justify-center flex-shrink-0">
+                <CheckCircle size={22} className="text-red-400" />
+              </div>
+              <div>
+                <h2 className="text-white font-bold text-lg leading-tight">¿Finalizar sesión?</h2>
+                <p className="text-slate-400 text-sm mt-0.5">
+                  {fmtDur(sessionElapsed)} · {sets.length} serie{sets.length !== 1 ? 's' : ''}
+                </p>
+              </div>
             </div>
-            <h2 className="text-white font-bold text-xl text-center">¿Finalizar rutina?</h2>
-            <p className="text-slate-400 text-sm text-center">
-              Sesión de {fmtDur(sessionElapsed)} · {sets.length} serie{sets.length !== 1 ? 's' : ''}
-            </p>
             <div className="grid grid-cols-2 gap-3">
-              <button onClick={() => setShowEndConfirm(false)} className="py-3.5 bg-slate-700 hover:bg-slate-600 text-white rounded-xl font-semibold transition-colors">
+              <button onClick={() => setShowEndConfirm(false)} disabled={ending} className="py-3.5 bg-slate-700 hover:bg-slate-600 disabled:opacity-50 text-white rounded-xl font-semibold transition-colors">
                 Seguir
               </button>
-              <button onClick={handleEnd} disabled={ending} className="py-3.5 bg-emerald-600 hover:bg-emerald-500 disabled:opacity-60 text-white rounded-xl font-semibold transition-colors">
-                Finalizar
+              <button onClick={handleEnd} disabled={ending} className="py-3.5 bg-red-600 hover:bg-red-500 disabled:opacity-60 text-white rounded-xl font-semibold transition-colors">
+                {ending ? 'Finalizando…' : 'Finalizar'}
               </button>
             </div>
           </div>
