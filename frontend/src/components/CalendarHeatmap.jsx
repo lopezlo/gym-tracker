@@ -6,7 +6,8 @@ const WEEKS = 26
 export default function CalendarHeatmap({ data }) {
   const [tooltip, setTooltip] = useState(null)
 
-  const dataMap = Object.fromEntries(data.map(d => [d.date, d]))
+  // Normalize date keys — backend may return full ISO strings or plain YYYY-MM-DD
+  const dataMap = Object.fromEntries(data.map(d => [String(d.date).substring(0, 10), d]))
 
   const today = dayjs()
   const startDate = today.subtract(WEEKS * 7 - 1, 'day')
@@ -30,9 +31,11 @@ export default function CalendarHeatmap({ data }) {
     if (!date) return 'bg-slate-900'
     const entry = dataMap[date]
     if (!entry) return 'bg-slate-700/60'
+    // Any trained day is visible even if duration is 0
+    if (!entry.total_minutes || entry.total_minutes === 0) return 'bg-indigo-700'
     const intensity = entry.total_minutes / maxMinutes
-    if (intensity < 0.25) return 'bg-indigo-900'
-    if (intensity < 0.5) return 'bg-indigo-700'
+    if (intensity < 0.25) return 'bg-indigo-800'
+    if (intensity < 0.5)  return 'bg-indigo-600'
     if (intensity < 0.75) return 'bg-indigo-500'
     return 'bg-indigo-400'
   }
