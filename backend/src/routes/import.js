@@ -6,14 +6,27 @@ const router = express.Router()
 
 const upload = multer({ storage: multer.memoryStorage(), limits: { fileSize: 20 * 1024 * 1024 } })
 
+// Detect delimiter: Excel in Spain/Europe uses ; instead of ,
+function detectDelimiter(content) {
+  const firstLine = content.split('\n')[0] || ''
+  const semis  = (firstLine.match(/;/g)  || []).length
+  const commas = (firstLine.match(/,/g)  || []).length
+  const tabs   = (firstLine.match(/\t/g) || []).length
+  if (tabs > semis && tabs > commas) return '\t'
+  if (semis > commas) return ';'
+  return ','
+}
+
 router.post('/preview', upload.single('file'), (req, res) => {
   if (!req.file) return res.status(400).json({ error: 'No file' })
   try {
-    const records = parse(req.file.buffer.toString('utf-8'), {
-      columns: true, skip_empty_lines: true, trim: true, relax_column_count: true,
+    const content = req.file.buffer.toString('utf-8')
+    const delimiter = detectDelimiter(content)
+    const records = parse(content, {
+      columns: true, skip_empty_lines: true, trim: true, relax_column_count: true, delimiter,
     })
     const headers = records.length > 0 ? Object.keys(records[0]) : []
-    res.json({ headers, sample: records.slice(0, 8), total: records.length })
+    res.json({ headers, sample: records.slice(0, 8), total: records.length, delimiter })
   } catch (e) {
     res.status(400).json({ error: 'CSV inválido: ' + e.message })
   }
@@ -30,8 +43,10 @@ router.post('/execute', upload.single('file'), async (req, res) => {
 
   let records
   try {
-    records = parse(req.file.buffer.toString('utf-8'), {
-      columns: true, skip_empty_lines: true, trim: true, relax_column_count: true,
+    const content = req.file.buffer.toString('utf-8')
+    const delimiter = detectDelimiter(content)
+    records = parse(content, {
+      columns: true, skip_empty_lines: true, trim: true, relax_column_count: true, delimiter,
     })
   } catch (e) { return res.status(400).json({ error: 'CSV inválido: ' + e.message }) }
 

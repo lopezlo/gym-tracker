@@ -8,7 +8,7 @@ const FIELDS = [
   { key: 'exercise', label: 'Ejercicio', required: true, hint: 'nombre del ejercicio' },
   { key: 'weight', label: 'Peso (kg)', required: false, hint: 'número, puede estar vacío' },
   { key: 'reps', label: 'Repeticiones', required: false, hint: 'número entero' },
-  { key: 'duration', label: 'Duración (seg)', required: false, hint: 'segundos, para ejercicios de tiempo' },
+  { key: 'duration', label: 'Duración (min)', required: false, hint: 'minutos (ej. 1.5), para ejercicios de tiempo' },
 ]
 
 export default function Import() {
@@ -38,7 +38,7 @@ export default function Import() {
         else if (hl.includes('ejercicio') || hl.includes('exercise') || hl.includes('nombre') || hl === 'name') autoMap.exercise = h
         else if (hl.includes('peso') || hl.includes('weight') || hl === 'kg') autoMap.weight = h
         else if (hl.includes('rep') || hl.includes('reps') || hl.includes('repeticion')) autoMap.reps = h
-        else if (hl.includes('dur') || hl.includes('tiempo') || hl.includes('seg') || hl.includes('time')) autoMap.duration = h
+        else if (hl.includes('dur') || hl.includes('tiempo') || hl.includes('seg') || hl.includes('time') || hl === 'duracion_min' || hl === 'duracion_seg') autoMap.duration = h
       })
       setMapping(autoMap)
       setStep('map')
