@@ -8,7 +8,7 @@ const FIELDS = [
   { key: 'exercise', label: 'Ejercicio', required: true, hint: 'nombre del ejercicio' },
   { key: 'weight', label: 'Peso (kg)', required: false, hint: 'número, puede estar vacío' },
   { key: 'reps', label: 'Repeticiones', required: false, hint: 'número entero' },
-  { key: 'duration', label: 'Duración (min)', required: false, hint: 'minutos (ej. 1.5), para ejercicios de tiempo' },
+  { key: 'duration', label: 'Duración', required: false, hint: 'en min (ej. 1.5) o seg si la columna incluye "seg"' },
 ]
 
 export default function Import() {

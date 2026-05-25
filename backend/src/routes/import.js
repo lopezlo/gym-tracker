@@ -6,9 +6,10 @@ const router = express.Router()
 
 const upload = multer({ storage: multer.memoryStorage(), limits: { fileSize: 20 * 1024 * 1024 } })
 
-// Detect delimiter: Excel in Spain/Europe uses ; instead of ,
+// Detect delimiter: strip BOM, check first non-empty line
 function detectDelimiter(content) {
-  const firstLine = content.split('\n')[0] || ''
+  const clean = content.replace(/^﻿/, '') // strip UTF-8 BOM
+  const firstLine = clean.split(/\r?\n/).find(l => l.trim()) || ''
   const semis  = (firstLine.match(/;/g)  || []).length
   const commas = (firstLine.match(/,/g)  || []).length
   const tabs   = (firstLine.match(/\t/g) || []).length
@@ -92,7 +93,10 @@ router.post('/execute', upload.single('file'), async (req, res) => {
 
         const weight   = columnMap.weight   ? (parseFloat(row[columnMap.weight])  || null) : null
         const reps     = columnMap.reps     ? (parseInt(row[columnMap.reps])       || null) : null
-        const duration = columnMap.duration ? (Math.round((parseFloat(row[columnMap.duration]) || 0) * 60) || null) : null
+        // If the mapped column name suggests seconds (duracion_seg, etc.) store as-is; otherwise convert minutes→seconds
+        const durationRaw = columnMap.duration ? (parseFloat(row[columnMap.duration]) || 0) : 0
+        const durationIsSeconds = columnMap.duration && /seg|sec/i.test(columnMap.duration)
+        const duration = durationRaw ? (durationIsSeconds ? Math.round(durationRaw) : Math.round(durationRaw * 60)) : null
 
         await client.query(`
           INSERT INTO sets (session_id, exercise_id, weight, reps, duration, recorded_at, set_order)
