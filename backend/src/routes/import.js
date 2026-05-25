@@ -8,11 +8,9 @@ const upload = multer({ storage: multer.memoryStorage(), limits: { fileSize: 20 
 
 // Detect delimiter from raw buffer — handles BOM and all line endings
 function detectDelimiter(buffer) {
-  // Strip UTF-8 BOM (EF BB BF) directly from bytes if present
   let start = 0
   if (buffer[0] === 0xEF && buffer[1] === 0xBB && buffer[2] === 0xBF) start = 3
-  // Read first line from raw bytes
-  let lineEnd = buffer.indexOf(0x0A, start) // find \n
+  let lineEnd = buffer.indexOf(0x0A, start)
   if (lineEnd === -1) lineEnd = buffer.length
   const firstLine = buffer.slice(start, lineEnd).toString('utf-8').replace(/\r$/, '')
   const semis  = (firstLine.match(/;/g)  || []).length
@@ -23,16 +21,20 @@ function detectDelimiter(buffer) {
   return ','
 }
 
+function parseContent(buffer) {
+  const delimiter = detectDelimiter(buffer)
+  const content = buffer.toString('utf-8').replace(/^﻿/, '')
+  return parse(content, {
+    columns: true, skip_empty_lines: true, trim: true, relax_column_count: true, delimiter,
+  })
+}
+
 router.post('/preview', upload.single('file'), (req, res) => {
   if (!req.file) return res.status(400).json({ error: 'No file' })
   try {
-    const delimiter = detectDelimiter(req.file.buffer)
-    const content = req.file.buffer.toString('utf-8').replace(/^﻿/, '')
-    const records = parse(content, {
-      columns: true, skip_empty_lines: true, trim: true, relax_column_count: true, delimiter,
-    })
+    const records = parseContent(req.file.buffer)
     const headers = records.length > 0 ? Object.keys(records[0]) : []
-    res.json({ headers, sample: records.slice(0, 8), total: records.length, delimiter })
+    res.json({ headers, sample: records.slice(0, 8), total: records.length })
   } catch (e) {
     res.status(400).json({ error: 'CSV inválido: ' + e.message })
   }
@@ -48,67 +50,105 @@ router.post('/execute', upload.single('file'), async (req, res) => {
   catch (e) { return res.status(400).json({ error: 'mapping JSON inválido' }) }
 
   let records
-  try {
-    const delimiter = detectDelimiter(req.file.buffer)
-    const content = req.file.buffer.toString('utf-8').replace(/^﻿/, '')
-    records = parse(content, {
-      columns: true, skip_empty_lines: true, trim: true, relax_column_count: true, delimiter,
-    })
-  } catch (e) { return res.status(400).json({ error: 'CSV inválido: ' + e.message }) }
+  try { records = parseContent(req.file.buffer) }
+  catch (e) { return res.status(400).json({ error: 'CSV inválido: ' + e.message }) }
 
+  // Group rows by date
   const byDate = new Map()
+  let skipped = 0
   for (const row of records) {
     const exerciseName = columnMap.exercise ? row[columnMap.exercise]?.trim() : null
-    if (!exerciseName) continue
+    if (!exerciseName) { skipped++; continue }
     const rawDate = columnMap.date ? row[columnMap.date] : null
     const dateKey = rawDate ? normalizeDate(rawDate) : new Date().toISOString().split('T')[0]
     if (!byDate.has(dateKey)) byDate.set(dateKey, [])
     byDate.get(dateKey).push(row)
   }
 
-  let imported = 0, skipped = 0
+  const durationIsSeconds = columnMap.duration && /seg|sec/i.test(columnMap.duration)
+
   const client = await pool.connect()
   try {
     await client.query('BEGIN')
 
-    for (const [dateKey, rows] of byDate) {
-      const { rows: [sess] } = await client.query(`
-        INSERT INTO sessions (user_id, started_at, ended_at)
-        VALUES ($1, ($2 || ' 09:00:00')::TIMESTAMP, ($2 || ' 10:00:00')::TIMESTAMP)
-        RETURNING id
-      `, [Number(user_id), dateKey])
-      const sessionId = sess.id
-      let order = 0
+    // ── 1. Pre-load all existing exercises into memory (1 query) ──
+    const { rows: existingExercises } = await client.query('SELECT id, name, type FROM exercises')
+    const exerciseCache = new Map(existingExercises.map(e => [e.name.toLowerCase(), e]))
 
+    // ── 2. Find missing exercises and insert them (1 query each, usually very few) ──
+    const toInsert = new Map()
+    for (const [, rows] of byDate) {
       for (const row of rows) {
-        const exerciseName = (columnMap.exercise ? row[columnMap.exercise] : null)?.trim()
-        if (!exerciseName) { skipped++; continue }
-
-        let { rows: [exercise] } = await client.query(
-          'SELECT * FROM exercises WHERE LOWER(name) = LOWER($1)', [exerciseName]
-        )
-        if (!exercise) {
+        const name = columnMap.exercise ? row[columnMap.exercise]?.trim() : null
+        if (!name) continue
+        const key = name.toLowerCase()
+        if (!exerciseCache.has(key) && !toInsert.has(key)) {
           const hasTime = columnMap.duration && row[columnMap.duration]?.trim()
-          const { rows: [ex] } = await client.query(
-            'INSERT INTO exercises (name, type) VALUES ($1, $2) RETURNING *',
-            [exerciseName, hasTime ? 'time' : 'reps']
-          )
-          exercise = ex
+          toInsert.set(key, { name, type: hasTime ? 'time' : 'reps' })
         }
+      }
+    }
+    for (const { name, type } of toInsert.values()) {
+      const { rows: [ex] } = await client.query(
+        `INSERT INTO exercises (name, type) VALUES ($1, $2)
+         ON CONFLICT (name) DO UPDATE SET name = EXCLUDED.name RETURNING id, name, type`,
+        [name, type]
+      )
+      exerciseCache.set(ex.name.toLowerCase(), ex)
+    }
 
-        const weight   = columnMap.weight   ? (parseFloat(row[columnMap.weight])  || null) : null
-        const reps     = columnMap.reps     ? (parseInt(row[columnMap.reps])       || null) : null
-        // If the mapped column name suggests seconds (duracion_seg, etc.) store as-is; otherwise convert minutes→seconds
-        const durationRaw = columnMap.duration ? (parseFloat(row[columnMap.duration]) || 0) : 0
-        const durationIsSeconds = columnMap.duration && /seg|sec/i.test(columnMap.duration)
-        const duration = durationRaw ? (durationIsSeconds ? Math.round(durationRaw) : Math.round(durationRaw * 60)) : null
+    // ── 3. Batch-insert all sessions in one query ──
+    const dateList = [...byDate.keys()]
+    const sessValues = dateList.map((_, i) =>
+      `($1, ($${i + 2} || ' 09:00:00')::TIMESTAMP, ($${i + 2} || ' 10:00:00')::TIMESTAMP)`
+    ).join(',')
+    const { rows: sessions } = await client.query(
+      `INSERT INTO sessions (user_id, started_at, ended_at) VALUES ${sessValues}
+       RETURNING id, TO_CHAR(DATE(started_at), 'YYYY-MM-DD') AS date`,
+      [Number(user_id), ...dateList]
+    )
+    const sessionMap = new Map(sessions.map(s => [s.date, s.id]))
 
-        await client.query(`
-          INSERT INTO sets (session_id, exercise_id, weight, reps, duration, recorded_at, set_order)
-          VALUES ($1, $2, $3, $4, $5, ($6 || ' 09:00:00')::TIMESTAMP, $7)
-        `, [sessionId, exercise.id, weight, reps, duration, dateKey, ++order])
+    // ── 4. Build set rows, insert in chunks of 500 (avoids param limit) ──
+    const CHUNK = 500
+    const setRows  = []  // VALUES strings
+    const setParams = [] // flat param array
+    let imported = 0
+
+    for (const [dateKey, rows] of byDate) {
+      const sessionId = sessionMap.get(dateKey)
+      if (!sessionId) continue
+      let order = 0
+      for (const row of rows) {
+        const name = columnMap.exercise ? row[columnMap.exercise]?.trim() : null
+        if (!name) continue
+        const exercise = exerciseCache.get(name.toLowerCase())
+        if (!exercise) continue
+
+        const weight = columnMap.weight   ? (parseFloat(row[columnMap.weight])  || null) : null
+        const reps   = columnMap.reps     ? (parseInt(row[columnMap.reps])       || null) : null
+        const raw    = columnMap.duration ? (parseFloat(row[columnMap.duration]) || 0)    : 0
+        const duration = raw
+          ? (durationIsSeconds ? Math.round(raw) : Math.round(raw * 60))
+          : null
+
+        const base = setParams.length
+        setRows.push(
+          `($${base+1}, $${base+2}, $${base+3}, $${base+4}, $${base+5}, ($${base+6} || ' 09:00:00')::TIMESTAMP, $${base+7})`
+        )
+        setParams.push(sessionId, exercise.id, weight, reps, duration, dateKey, ++order)
         imported++
       }
+    }
+
+    for (let i = 0; i < setRows.length; i += CHUNK) {
+      const chunkRows   = setRows.slice(i, i + CHUNK)
+      const chunkParams = setParams.slice(i * 7, (i + CHUNK) * 7)
+      await client.query(
+        `INSERT INTO sets (session_id, exercise_id, weight, reps, duration, recorded_at, set_order)
+         VALUES ${chunkRows.join(',')}`,
+        chunkParams
+      )
     }
 
     await client.query('COMMIT')
