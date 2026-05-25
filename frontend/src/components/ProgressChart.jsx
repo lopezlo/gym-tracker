@@ -55,7 +55,9 @@ export default function ProgressChart({ exerciseProgress, defaultExerciseId }) {
           if (s.weight != null && (d.maxWeight === null || s.weight > d.maxWeight)) d.maxWeight = s.weight
           if (s.reps != null) d.totalReps += s.reps
         } else {
-          if (s.duration != null && (d.maxDuration === null || s.duration > d.maxDuration)) d.maxDuration = s.duration
+          // Convert seconds → minutes (0.5 precision)
+          const mins = s.duration != null ? Math.round(s.duration / 60 * 2) / 2 : null
+          if (mins != null && (d.maxDuration === null || mins > d.maxDuration)) d.maxDuration = mins
         }
       })
 
@@ -113,7 +115,7 @@ export default function ProgressChart({ exerciseProgress, defaultExerciseId }) {
             <Tooltip content={<CustomTooltip />} />
             {isTime ? (
               <Line
-                type="monotone" dataKey="maxDuration" name="Duración" unit="s"
+                type="monotone" dataKey="maxDuration" name="Duración" unit=" min"
                 stroke="#f59e0b" strokeWidth={2}
                 dot={<Dot r={4} fill="#f59e0b" />}
                 activeDot={{ r: 6 }}

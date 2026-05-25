@@ -1,4 +1,4 @@
-import { useState, useEffect } from 'react'
+import { useState, useEffect, useRef } from 'react'
 import { Outlet, NavLink, useNavigate } from 'react-router-dom'
 import { LayoutDashboard, BarChart2, Activity } from 'lucide-react'
 import { useApp } from '../context/AppContext'
@@ -11,6 +11,27 @@ export default function MainLayout() {
   const [showEndModal, setShowEndModal] = useState(false)
   const [starting, setStarting] = useState(false)
   const [ending, setEnding] = useState(false)
+  const [endSessionInfo, setEndSessionInfo] = useState(null)
+
+  // Load session summary when end modal opens
+  useEffect(() => {
+    if (!showEndModal || !activeSessionId) return
+    setEndSessionInfo(null)
+    api.getSession(activeSessionId)
+      .then(s => setEndSessionInfo(s))
+      .catch(() => {})
+  }, [showEndModal])
+
+  const fmtElapsed = (startedAt) => {
+    if (!startedAt) return ''
+    const start = new Date(/Z$|[+-]\d{2}/.test(startedAt) ? startedAt : startedAt.replace(' ', 'T') + 'Z')
+    const secs = Math.floor((Date.now() - start.getTime()) / 1000)
+    const h = Math.floor(secs / 3600)
+    const m = Math.floor((secs % 3600) / 60)
+    const s = secs % 60
+    if (h > 0) return `${h}:${String(m).padStart(2,'0')}:${String(s).padStart(2,'0')}`
+    return `${String(m).padStart(2,'0')}:${String(s).padStart(2,'0')}`
+  }
 
   useEffect(() => {
     if (!user) navigate('/', { replace: true })
@@ -29,7 +50,7 @@ export default function MainLayout() {
   const handleEndSession = async () => {
     setEnding(true)
     try {
-      const session = await api.getSession(activeSessionId)
+      const session = endSessionInfo || await api.getSession(activeSessionId)
       if (!session.sets || session.sets.length === 0) {
         await api.deleteSession(activeSessionId)
       } else {
@@ -37,6 +58,7 @@ export default function MainLayout() {
       }
       setActiveSession(null)
       setShowEndModal(false)
+      setEndSessionInfo(null)
       navigate('/dashboard')
     } catch (e) {
       alert(e.message)
@@ -192,16 +214,20 @@ export default function MainLayout() {
               </div>
               <div>
                 <h2 className="text-white font-bold text-lg leading-tight">¿Finalizar sesión?</h2>
-                <p className="text-slate-400 text-sm mt-0.5">Se guardará el progreso registrado</p>
+                <p className="text-slate-400 text-sm mt-0.5">
+                  {endSessionInfo
+                    ? `${fmtElapsed(endSessionInfo.started_at)} · ${endSessionInfo.sets?.length ?? 0} serie${(endSessionInfo.sets?.length ?? 0) !== 1 ? 's' : ''}`
+                    : '…'}
+                </p>
               </div>
             </div>
             <div className="grid grid-cols-2 gap-3">
               <button
-                onClick={() => { setShowEndModal(false); navigate(`/session/${activeSessionId}`) }}
+                onClick={() => { setShowEndModal(false); setEndSessionInfo(null); navigate(`/session/${activeSessionId}`) }}
                 disabled={ending}
                 className="py-3.5 bg-slate-700 hover:bg-slate-600 disabled:opacity-50 text-white rounded-xl font-semibold transition-colors"
               >
-                Ver sesión
+                Seguir
               </button>
               <button
                 onClick={handleEndSession}
