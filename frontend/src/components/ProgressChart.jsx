@@ -1,12 +1,18 @@
 import { useState, useMemo, useEffect, useRef } from 'react'
 import {
   LineChart, Line, XAxis, YAxis, CartesianGrid, Tooltip,
-  ResponsiveContainer, Dot
+  ResponsiveContainer, Dot, ReferenceDot
 } from 'recharts'
 import dayjs from 'dayjs'
 import { ChevronDown, X } from 'lucide-react'
 
 const CHART_COLORS = ['#6366f1', '#f59e0b', '#10b981', '#f43f5e', '#3b82f6', '#a855f7', '#14b8a6', '#f97316']
+
+const RANGES = [
+  { key: '1m', label: '1 mes' },
+  { key: '1y', label: '1 año' },
+  { key: 'all', label: 'Todo' },
+]
 
 const CustomTooltip = ({ active, payload, label }) => {
   if (!active || !payload?.length) return null
@@ -23,7 +29,8 @@ const CustomTooltip = ({ active, payload, label }) => {
 }
 
 export default function ProgressChart({ exerciseProgress, defaultExerciseId, userId }) {
-  const storageKey = `gymlog_chart_${userId ?? 'default'}`
+  const storageKey  = `gymlog_chart_${userId ?? 'default'}`
+  const rangeKey    = `gymlog_chart_range_${userId ?? 'default'}`
 
   const [selectedIds, setSelectedIds] = useState(() => {
     try {
@@ -31,6 +38,11 @@ export default function ProgressChart({ exerciseProgress, defaultExerciseId, use
       return saved ? JSON.parse(saved) : []
     } catch { return [] }
   })
+
+  const [range, setRange] = useState(() => {
+    try { return localStorage.getItem(rangeKey) || '1y' } catch { return '1y' }
+  })
+
   const [dropdownOpen, setDropdownOpen] = useState(false)
   const dropRef = useRef(null)
 
@@ -42,19 +54,22 @@ export default function ProgressChart({ exerciseProgress, defaultExerciseId, use
     return Object.values(map).sort((a, b) => a.name.localeCompare(b.name))
   }, [exerciseProgress])
 
-  // Persist selection to localStorage
+  // Persist selection + range
   useEffect(() => {
     try { localStorage.setItem(storageKey, JSON.stringify(selectedIds)) } catch {}
   }, [selectedIds, storageKey])
 
-  // Once exercises load: prune stale IDs, and seed a default if selection is empty
+  useEffect(() => {
+    try { localStorage.setItem(rangeKey, range) } catch {}
+  }, [range, rangeKey])
+
+  // Prune stale IDs; seed default if empty
   useEffect(() => {
     if (exercises.length === 0) return
     const validIds = exercises.map(e => e.id)
     setSelectedIds(prev => {
       const pruned = prev.filter(id => validIds.includes(id))
       if (pruned.length > 0) return pruned.length === prev.length ? prev : pruned
-      // Nothing valid — pick a default
       if (defaultExerciseId && validIds.includes(defaultExerciseId)) return [defaultExerciseId]
       return [exercises[0].id]
     })
@@ -69,28 +84,43 @@ export default function ProgressChart({ exerciseProgress, defaultExerciseId, use
     return () => document.removeEventListener('mousedown', handler)
   }, [])
 
+  // Range cutoff date
+  const rangeStart = useMemo(() => {
+    if (range === '1m') return dayjs().subtract(1, 'month').format('YYYY-MM-DD')
+    if (range === '1y') return dayjs().subtract(1, 'year').format('YYYY-MM-DD')
+    return null
+  }, [range])
+
+  // Filtered progress for active range
+  const filteredProgress = useMemo(() =>
+    rangeStart
+      ? exerciseProgress.filter(s => s.date >= rangeStart)
+      : exerciseProgress
+  , [exerciseProgress, rangeStart])
+
+  // X-axis tick format adapts to range
+  const xTickFmt = range === '1m' ? 'D/M' : range === '1y' ? 'MMM' : 'MMM YY'
+
   const addExercise = (id) => {
     setSelectedIds(prev => prev.includes(id) ? prev : [...prev, id])
     setDropdownOpen(false)
   }
+  const removeExercise = (id) => setSelectedIds(prev => prev.filter(i => i !== id))
 
-  const removeExercise = (id) => {
-    setSelectedIds(prev => prev.filter(i => i !== id))
-  }
-
-  // Build unified chart data across all selected exercises
-  const chartData = useMemo(() => {
-    if (selectedIds.length === 0) return []
+  // Build unified chart data
+  const { chartData, maxPoints } = useMemo(() => {
+    if (selectedIds.length === 0) return { chartData: [], maxPoints: {} }
 
     const allDates = new Set()
     const byExerciseDate = {}
+    const maxVal = {}   // exerciseId → { date, value }
 
     selectedIds.forEach(exId => {
       byExerciseDate[exId] = {}
       const exercise = exercises.find(e => e.id === exId)
       if (!exercise) return
 
-      exerciseProgress
+      filteredProgress
         .filter(s => s.exercise_id === exId)
         .forEach(s => {
           allDates.add(s.date)
@@ -107,24 +137,33 @@ export default function ProgressChart({ exerciseProgress, defaultExerciseId, use
             if (mins != null && (d.maxDuration === null || mins > d.maxDuration)) d.maxDuration = mins
           }
         })
+
+      // Find personal best for this exercise in the filtered range
+      let best = null
+      Object.entries(byExerciseDate[exId]).forEach(([date, d]) => {
+        const val = exercise.type === 'reps' ? d.maxWeight : d.maxDuration
+        if (val != null && (best === null || val > best.value)) best = { date, value: val }
+      })
+      if (best) maxVal[exId] = best
     })
 
-    return [...allDates].sort().map(date => {
+    const data = [...allDates].sort().map(date => {
       const point = { date }
       selectedIds.forEach(exId => {
         const exercise = exercises.find(e => e.id === exId)
         const dayData = byExerciseDate[exId]?.[date]
-        if (exercise?.type === 'reps') {
-          point[`v_${exId}`] = dayData?.maxWeight ?? null
-        } else {
-          point[`v_${exId}`] = dayData?.maxDuration ?? null
-        }
+        point[`v_${exId}`] = exercise?.type === 'reps'
+          ? (dayData?.maxWeight ?? null)
+          : (dayData?.maxDuration ?? null)
       })
       return point
     })
-  }, [selectedIds, exerciseProgress, exercises])
+
+    return { chartData: data, maxPoints: maxVal }
+  }, [selectedIds, filteredProgress, exercises])
 
   const unselected = exercises.filter(e => !selectedIds.includes(e.id))
+  const hasData = chartData.length > 0 && selectedIds.length > 0
 
   if (exercises.length === 0) return (
     <div className="text-center py-12 text-slate-500 text-sm">
@@ -134,9 +173,8 @@ export default function ProgressChart({ exerciseProgress, defaultExerciseId, use
 
   return (
     <div className="space-y-4">
-      {/* Selection controls */}
+      {/* Exercise selector */}
       <div className="space-y-2">
-        {/* Selected exercise tags */}
         {selectedIds.length > 0 && (
           <div className="flex flex-wrap gap-2">
             {selectedIds.map((id, idx) => {
@@ -163,7 +201,6 @@ export default function ProgressChart({ exerciseProgress, defaultExerciseId, use
           </div>
         )}
 
-        {/* Add exercise dropdown */}
         {unselected.length > 0 && (
           <div className="relative" ref={dropRef}>
             <button
@@ -191,9 +228,9 @@ export default function ProgressChart({ exerciseProgress, defaultExerciseId, use
       </div>
 
       {/* Chart */}
-      {selectedIds.length === 0 || chartData.length === 0 ? (
-        <div className="text-center py-8 text-slate-500 text-sm">
-          Sin datos para los ejercicios seleccionados.
+      {!hasData ? (
+        <div className="text-center py-10 text-slate-500 text-sm">
+          Sin datos en el período seleccionado.
         </div>
       ) : (
         <ResponsiveContainer width="100%" height={220}>
@@ -201,12 +238,13 @@ export default function ProgressChart({ exerciseProgress, defaultExerciseId, use
             <CartesianGrid strokeDasharray="3 3" stroke="#1e293b" />
             <XAxis
               dataKey="date"
-              tickFormatter={d => dayjs(d).format('d/M')}
+              tickFormatter={d => dayjs(d).format(xTickFmt)}
               tick={{ fill: '#64748b', fontSize: 11 }}
               axisLine={false}
               tickLine={false}
             />
             <YAxis
+              domain={['auto', 'auto']}
               tick={{ fill: '#64748b', fontSize: 11 }}
               axisLine={false}
               tickLine={false}
@@ -231,9 +269,43 @@ export default function ProgressChart({ exerciseProgress, defaultExerciseId, use
                 />
               )
             })}
+            {/* Personal best markers */}
+            {selectedIds.map((id, idx) => {
+              const pb = maxPoints[id]
+              if (!pb) return null
+              const color = CHART_COLORS[idx % CHART_COLORS.length]
+              return (
+                <ReferenceDot
+                  key={`pb_${id}`}
+                  x={pb.date}
+                  y={pb.value}
+                  r={5}
+                  fill={color}
+                  stroke="#0f172a"
+                  strokeWidth={2}
+                />
+              )
+            })}
           </LineChart>
         </ResponsiveContainer>
       )}
+
+      {/* Range selector */}
+      <div className="flex justify-center gap-2">
+        {RANGES.map(r => (
+          <button
+            key={r.key}
+            onClick={() => setRange(r.key)}
+            className={`px-5 py-1.5 rounded-lg text-xs font-semibold transition-colors ${
+              range === r.key
+                ? 'bg-indigo-600 text-white'
+                : 'bg-slate-700 text-slate-400 hover:text-white'
+            }`}
+          >
+            {r.label}
+          </button>
+        ))}
+      </div>
     </div>
   )
 }
