@@ -1,37 +1,45 @@
 import dayjs from 'dayjs'
 import { useState } from 'react'
-
-const WEEKS = 26
+import { ChevronLeft, ChevronRight } from 'lucide-react'
 
 export default function CalendarHeatmap({ data }) {
   const [tooltip, setTooltip] = useState(null)
+  const currentYear = dayjs().year()
+  const [year, setYear] = useState(currentYear)
 
-  // Normalize date keys — backend may return full ISO strings or plain YYYY-MM-DD
+  // Normalize date keys
   const dataMap = Object.fromEntries(data.map(d => [String(d.date).substring(0, 10), d]))
 
   const today = dayjs()
-  const startDate = today.subtract(WEEKS * 7 - 1, 'day')
+  const yearStart = dayjs(`${year}-01-01`)
+  const yearEnd = year === currentYear ? today : dayjs(`${year}-12-31`)
 
-  // Build weeks array (columns)
+  // Start grid from the Sunday on or before Jan 1
+  const gridStart = yearStart.subtract(yearStart.day(), 'day')
+
   const weeks = []
-  let current = startDate
-  while (current.isBefore(today) || current.isSame(today, 'day')) {
+  let current = gridStart
+  while (current.isBefore(yearEnd) || current.format('YYYY-MM-DD') === yearEnd.format('YYYY-MM-DD')) {
     const week = []
     for (let d = 0; d < 7; d++) {
-      if (current.isAfter(today)) { week.push(null); current = current.add(1, 'day'); continue }
-      week.push(current.format('YYYY-MM-DD'))
+      const isBeforeStart = current.isBefore(yearStart)
+      const isAfterEnd = current.isAfter(yearEnd)
+      week.push(isBeforeStart || isAfterEnd ? null : current.format('YYYY-MM-DD'))
       current = current.add(1, 'day')
     }
     weeks.push(week)
   }
 
-  const maxMinutes = Math.max(...data.map(d => d.total_minutes), 1)
+  // Max minutes for the displayed year only (relative intensity)
+  const yearDataVals = data
+    .filter(d => String(d.date).substring(0, 4) === String(year))
+    .map(d => d.total_minutes)
+  const maxMinutes = Math.max(...yearDataVals, 1)
 
   const colorFor = (date) => {
-    if (!date) return 'bg-slate-900'
+    if (!date) return 'bg-transparent'
     const entry = dataMap[date]
     if (!entry) return 'bg-slate-700/60'
-    // Any trained day is visible even if duration is 0
     if (!entry.total_minutes || entry.total_minutes === 0) return 'bg-indigo-700'
     const intensity = entry.total_minutes / maxMinutes
     if (intensity < 0.25) return 'bg-indigo-800'
@@ -60,6 +68,26 @@ export default function CalendarHeatmap({ data }) {
 
   return (
     <div className="relative select-none">
+      {/* Year navigation */}
+      <div className="flex items-center justify-between mb-3">
+        <button
+          onClick={() => setYear(y => y - 1)}
+          className="p-1.5 rounded-lg text-slate-500 hover:text-white hover:bg-slate-700 transition-colors"
+          aria-label="Año anterior"
+        >
+          <ChevronLeft size={16} />
+        </button>
+        <span className="text-slate-300 font-semibold text-sm">{year}</span>
+        <button
+          onClick={() => setYear(y => y + 1)}
+          disabled={year >= currentYear}
+          className="p-1.5 rounded-lg text-slate-500 hover:text-white hover:bg-slate-700 transition-colors disabled:opacity-30 disabled:cursor-not-allowed"
+          aria-label="Año siguiente"
+        >
+          <ChevronRight size={16} />
+        </button>
+      </div>
+
       {/* Month labels */}
       <div className="flex mb-1 relative h-4">
         {monthLabels().map(({ i, label }) => (

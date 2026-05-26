@@ -131,12 +131,6 @@ export default function Dashboard() {
           Importar datos históricos (CSV)
         </button>
 
-        {/* Legal footer */}
-        <div className="text-center text-slate-700 text-xs pt-2 pb-1 space-y-0.5 border-t border-slate-800">
-          <p>No se almacenan datos personales. Solo se registran los ejercicios realizados.</p>
-          <p>v{__APP_VERSION__} · {__BUILD_DATE__}</p>
-        </div>
-
       </div>
     </div>
   )

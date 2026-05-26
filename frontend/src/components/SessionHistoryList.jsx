@@ -1,5 +1,5 @@
-import { useState, useEffect } from 'react'
-import { ChevronDown, ChevronUp, Edit2, Check, X, Clock, Dumbbell, Trash2 } from 'lucide-react'
+import { useState, useEffect, useMemo } from 'react'
+import { ChevronDown, ChevronUp, Edit2, Check, X, Clock, Dumbbell, Trash2, ChevronRight } from 'lucide-react'
 import { api } from '../api/client'
 import ConfirmModal from './ConfirmModal'
 import dayjs from 'dayjs'
@@ -64,9 +64,10 @@ export default function SessionHistoryList({ userId, onDataChanged }) {
   const [sessionEditValues, setSessionEditValues] = useState({})
   const [confirmModal, setConfirmModal] = useState(null)
   const [loading, setLoading] = useState(true)
+  const [expandedYears, setExpandedYears] = useState(() => new Set([new Date().getFullYear()]))
 
   const load = () => {
-    api.getSessions(userId, 30)
+    api.getSessions(userId, 5000)
       .then(data => setSessions(data))
       .finally(() => setLoading(false))
   }
@@ -170,6 +171,27 @@ export default function SessionHistoryList({ userId, onDataChanged }) {
     onDataChanged?.()
   }
 
+  const sessionsByYear = useMemo(() => {
+    const map = {}
+    sessions.forEach(s => {
+      const yr = toUTC(s.started_at).getFullYear()
+      if (!map[yr]) map[yr] = []
+      map[yr].push(s)
+    })
+    return Object.entries(map)
+      .map(([yr, list]) => ({ year: parseInt(yr), sessions: list }))
+      .sort((a, b) => b.year - a.year)
+  }, [sessions])
+
+  const toggleYear = (yr) => {
+    setExpandedYears(prev => {
+      const next = new Set(prev)
+      if (next.has(yr)) next.delete(yr)
+      else next.add(yr)
+      return next
+    })
+  }
+
   if (loading) return (
     <div className="space-y-2">
       {[1, 2, 3].map(i => <div key={i} className="h-16 bg-slate-800 rounded-2xl animate-pulse" />)}
@@ -182,8 +204,31 @@ export default function SessionHistoryList({ userId, onDataChanged }) {
 
   return (
     <>
-      <div className="space-y-2">
-        {sessions.map(session => {
+      <div className="space-y-4">
+        {sessionsByYear.map(({ year: yr, sessions: yearSessions }) => {
+          const isExpanded = expandedYears.has(yr)
+          return (
+            <div key={yr}>
+              {/* Year header */}
+              <button
+                onClick={() => toggleYear(yr)}
+                className="w-full flex items-center gap-2 px-1 py-1.5 mb-2 group"
+              >
+                <ChevronRight
+                  size={14}
+                  className={`text-slate-500 transition-transform flex-shrink-0 ${isExpanded ? 'rotate-90' : ''}`}
+                />
+                <span className="text-slate-400 text-xs font-semibold uppercase tracking-wider">{yr}</span>
+                <span className="text-slate-600 text-xs ml-1">
+                  {yearSessions.length} sesión{yearSessions.length !== 1 ? 'es' : ''}
+                </span>
+                <div className="flex-1 h-px bg-slate-800 ml-2" />
+              </button>
+
+              {/* Sessions for this year */}
+              {isExpanded && (
+                <div className="space-y-2">
+                  {yearSessions.map(session => {
           const isOpen = expanded === session.id
           const isEditingThis = editingSession === session.id
           const detail = details[session.id]
@@ -387,6 +432,11 @@ export default function SessionHistoryList({ userId, onDataChanged }) {
                       </div>
                     </div>
                   ))}
+                </div>
+              )}
+            </div>
+          )
+                  })}
                 </div>
               )}
             </div>

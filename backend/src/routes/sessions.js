@@ -14,7 +14,7 @@ router.get('/stats/:userId', async (req, res) => {
           THEN EXTRACT(EPOCH FROM (ended_at - started_at))::INTEGER / 60
           ELSE 0 END), 0)::INTEGER                                               AS total_minutes
       FROM sessions
-      WHERE user_id = $1 AND started_at >= NOW() - INTERVAL '13 months'
+      WHERE user_id = $1
       GROUP BY DATE(started_at)
       ORDER BY date ASC
     `, [userId])

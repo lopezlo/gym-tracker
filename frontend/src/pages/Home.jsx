@@ -281,6 +281,12 @@ export default function Home() {
         onChange={handleAvatarFile}
       />
 
+      {/* Legal footer */}
+      <p className="text-center text-slate-700 text-xs mt-8 space-y-0.5">
+        No se almacenan datos personales. Solo se registran los ejercicios realizados.
+        <br />v{__APP_VERSION__} · {__BUILD_DATE__}
+      </p>
+
       {/* Delete confirmation modal */}
       {pendingDelete && (
         <DeleteModal
