@@ -62,8 +62,8 @@ export default function History() {
           <h2 className="text-sm font-semibold text-slate-300 mb-4">Evolución por ejercicio</h2>
           {showSkeleton
             ? <div className="space-y-3">
-                <div className="h-8 bg-slate-700 rounded-xl animate-pulse w-40" />
-                <div className="h-48 bg-slate-700 rounded-xl animate-pulse" />
+                <div className="h-8 skeleton rounded-xl w-40" />
+                <div className="h-48 skeleton rounded-xl" />
               </div>
             : <ProgressChart exerciseProgress={stats?.exerciseProgress ?? []} userId={user.id} />
           }

@@ -67,6 +67,7 @@ export default function Session() {
   const [adding, setAdding] = useState(false)
   const [loading, setLoading] = useState(true)
   const [ending, setEnding] = useState(false)
+  const [newSetId, setNewSetId] = useState(null)
 
   const sessionElapsed = useTimer(session?.started_at)
   const lastSetAt = sets.length > 0 ? sets[sets.length - 1].recorded_at : null
@@ -130,6 +131,8 @@ export default function Session() {
       }
       const newSet = await api.addSet(id, payload)
       setSets(prev => [...prev, newSet])
+      setNewSetId(newSet.id)
+      setTimeout(() => setNewSetId(null), 400)
     } catch (e) { alert(e.message) }
     setAdding(false)
   }
@@ -310,7 +313,7 @@ export default function Session() {
                   </div>
                   <div className="space-y-1.5">
                     {group.sets.map((s, i) => (
-                      <div key={s.id} className="flex items-center gap-3 py-1">
+                      <div key={s.id} className={`flex items-center gap-3 py-1 ${s.id === newSetId ? 'set-pop' : ''}`}>
                         <span className="text-slate-500 text-xs w-4 text-right">{i + 1}</span>
                         <span className="text-white font-mono text-sm flex-1">{fmtSet(s)}</span>
                         <span className="text-slate-600 text-xs">{dayjs(toUTC(s.recorded_at)).format('HH:mm')}</span>

@@ -200,7 +200,7 @@ export default function SessionHistoryList({ userId, onDataChanged }) {
 
   if (loading) return (
     <div className="space-y-2">
-      {[1, 2, 3].map(i => <div key={i} className="h-16 bg-slate-800 rounded-2xl animate-pulse" />)}
+      {[1, 2, 3].map(i => <div key={i} className="h-16 skeleton rounded-2xl" />)}
     </div>
   )
 
@@ -234,7 +234,7 @@ export default function SessionHistoryList({ userId, onDataChanged }) {
               {/* Sessions for this year */}
               {isExpanded && (
                 <div className="space-y-2">
-                  {yearSessions.map(session => {
+                  {yearSessions.map((session, idx) => {
           const isOpen = expanded === session.id
           const isEditingThis = editingSession === session.id
           const detail = details[session.id]
@@ -242,7 +242,11 @@ export default function SessionHistoryList({ userId, onDataChanged }) {
           const dur = fmtSessionDuration(session)
 
           return (
-            <div key={session.id} className="bg-slate-800 rounded-2xl overflow-hidden">
+            <div
+              key={session.id}
+              className="bg-slate-800 rounded-2xl overflow-hidden row-in"
+              style={{ animationDelay: `${Math.min(idx, 5) * 45}ms` }}
+            >
 
               {/* Session header — edit mode */}
               {isEditingThis ? (

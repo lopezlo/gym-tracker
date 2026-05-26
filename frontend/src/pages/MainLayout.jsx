@@ -1,5 +1,5 @@
 import { useState, useEffect } from 'react'
-import { Outlet, NavLink, useNavigate } from 'react-router-dom'
+import { Outlet, NavLink, useNavigate, useLocation } from 'react-router-dom'
 import { LayoutDashboard, BarChart2, Activity } from 'lucide-react'
 import { useApp } from '../context/AppContext'
 import { api } from '../api/client'
@@ -7,6 +7,8 @@ import { api } from '../api/client'
 export default function MainLayout() {
   const { user, activeSessionId, setActiveSession } = useApp()
   const navigate = useNavigate()
+  const location = useLocation()
+  const histActive = location.pathname.startsWith('/history')
   const [showStartModal, setShowStartModal] = useState(false)
   const [showEndModal, setShowEndModal] = useState(false)
   const [starting, setStarting] = useState(false)
@@ -89,8 +91,25 @@ export default function MainLayout() {
 
       <nav
         className="flex-shrink-0 bg-slate-900 border-t border-slate-800 safe-bottom"
-        style={{ overflow: 'visible' }}
+        style={{ overflow: 'visible', position: 'relative' }}
       >
+        {/* C: Sliding pill indicator */}
+        <div style={{
+          position: 'absolute',
+          bottom: '7px',
+          left: histActive
+            ? 'calc((100% - 80px) * 3 / 4 + 80px)'
+            : 'calc((100% - 80px) / 4)',
+          transform: 'translateX(-50%)',
+          width: '28px',
+          height: '3px',
+          borderRadius: '9999px',
+          background: '#6366f1',
+          opacity: location.pathname.startsWith('/dashboard') || location.pathname.startsWith('/history') ? 1 : 0,
+          transition: 'left 280ms cubic-bezier(0.4, 0, 0.2, 1), opacity 200ms ease',
+          pointerEvents: 'none',
+        }} />
+
         <div className="flex items-end h-16">
 
           {/* Dashboard */}

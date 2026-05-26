@@ -99,7 +99,7 @@ export default function Dashboard() {
             <div key={label} className="bg-slate-800 rounded-2xl p-3 text-center">
               <Icon size={18} className="text-indigo-400 mx-auto mb-1" />
               {showSkeleton
-                ? <div className="h-6 w-10 bg-slate-700 rounded-md animate-pulse mx-auto mb-0.5" />
+                ? <div className="h-6 w-10 skeleton rounded-md mx-auto mb-0.5" />
                 : <p className="text-white font-bold text-lg leading-tight">{value}</p>
               }
               <p className="text-slate-500 text-xs">{label}</p>
@@ -114,7 +114,7 @@ export default function Dashboard() {
             Días entrenados
           </h2>
           {showSkeleton
-            ? <div className="h-20 animate-pulse bg-slate-700 rounded-xl" />
+            ? <div className="h-20 skeleton rounded-xl" />
             : <CalendarHeatmap data={stats?.calendarData ?? []} />
           }
         </div>
