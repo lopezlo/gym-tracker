@@ -7,9 +7,18 @@
   box-sizing: border-box;
 }
 
-html, body, #root {
+html, body {
   height: 100%;
   overflow: hidden;
+}
+
+#root {
+  height: 100%;
+  overflow: hidden;
+  max-width: 767px;
+  margin: 0 auto;
+  /* subtle side shadow so the column reads well on wide screens */
+  box-shadow: 0 0 60px rgba(0,0,0,0.6);
 }
 
 body {
