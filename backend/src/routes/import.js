@@ -100,7 +100,7 @@ router.post('/execute', upload.single('file'), async (req, res) => {
     // ── 3. Batch-insert all sessions in one query ──
     const dateList = [...byDate.keys()]
     const sessValues = dateList.map((_, i) =>
-      `($1, ($${i + 2} || ' 09:00:00')::TIMESTAMP, ($${i + 2} || ' 10:00:00')::TIMESTAMP)`
+      `($1::int, ($${i + 2}::text || ' 09:00:00')::TIMESTAMP, ($${i + 2}::text || ' 10:00:00')::TIMESTAMP)`
     ).join(',')
     const { rows: sessions } = await client.query(
       `INSERT INTO sessions (user_id, started_at, ended_at) VALUES ${sessValues}
@@ -134,7 +134,7 @@ router.post('/execute', upload.single('file'), async (req, res) => {
 
         const base = setParams.length
         setRows.push(
-          `($${base+1}, $${base+2}, $${base+3}, $${base+4}, $${base+5}, ($${base+6} || ' 09:00:00')::TIMESTAMP, $${base+7})`
+          `($${base+1}::int, $${base+2}::int, $${base+3}::numeric, $${base+4}::int, $${base+5}::int, ($${base+6}::text || ' 09:00:00')::TIMESTAMP, $${base+7}::int)`
         )
         setParams.push(sessionId, exercise.id, weight, reps, duration, dateKey, ++order)
         imported++
