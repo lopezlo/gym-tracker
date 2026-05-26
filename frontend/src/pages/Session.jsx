@@ -187,7 +187,7 @@ export default function Session() {
   )
 
   return (
-    <div className="h-full flex flex-col bg-slate-900">
+    <div className="h-full flex flex-col bg-slate-900 page-in">
       {/* Header */}
       <div className="flex-shrink-0 px-4 pt-6 pb-3 flex items-center justify-between">
         <div>

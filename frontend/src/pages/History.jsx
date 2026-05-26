@@ -6,15 +6,21 @@ import { useApp } from '../context/AppContext'
 import ProgressChart from '../components/ProgressChart'
 
 export default function History() {
-  const { user, logout } = useApp()
+  const { user, logout, statsCache, setStatsCache } = useApp()
   const navigate = useNavigate()
-  const [stats, setStats] = useState(null)
-  const [loading, setLoading] = useState(true)
+
+  // Seed from cache immediately
+  const cached = statsCache[user?.id] ?? null
+  const [stats, setStats] = useState(cached)
+  const [loading, setLoading] = useState(!cached)
 
   useEffect(() => {
     if (!user) return
     api.getStats(user.id)
-      .then(setStats)
+      .then(data => {
+        setStats(data)
+        setStatsCache(user.id, data)
+      })
       .catch(() => {})
       .finally(() => setLoading(false))
   }, [user])
@@ -23,9 +29,11 @@ export default function History() {
   const colorFor = (id) => COLORS[id % COLORS.length]
   const initials = (name) => name.split(' ').map(w => w[0]).join('').toUpperCase().slice(0, 2)
 
+  const showSkeleton = loading && !stats
+
   return (
     <div className="h-full flex flex-col overflow-hidden">
-      <div className="flex-1 scrollable no-scrollbar px-4 pt-6 pb-4 space-y-6">
+      <div className="page-in flex-1 scrollable no-scrollbar px-4 pt-6 pb-4 space-y-6">
 
         {/* Header */}
         <div className="flex items-center justify-between">
@@ -50,16 +58,16 @@ export default function History() {
           </button>
         </div>
 
-        {loading ? (
-          <div className="space-y-4">
-            {[1, 2, 3].map(i => <div key={i} className="h-32 bg-slate-800 rounded-2xl animate-pulse" />)}
-          </div>
-        ) : (
-          <div className="bg-slate-800 rounded-2xl p-4">
-            <h2 className="text-sm font-semibold text-slate-300 mb-4">Evolución por ejercicio</h2>
-            <ProgressChart exerciseProgress={stats?.exerciseProgress ?? []} userId={user.id} />
-          </div>
-        )}
+        <div className="bg-slate-800 rounded-2xl p-4">
+          <h2 className="text-sm font-semibold text-slate-300 mb-4">Evolución por ejercicio</h2>
+          {showSkeleton
+            ? <div className="space-y-3">
+                <div className="h-8 bg-slate-700 rounded-xl animate-pulse w-40" />
+                <div className="h-48 bg-slate-700 rounded-xl animate-pulse" />
+              </div>
+            : <ProgressChart exerciseProgress={stats?.exerciseProgress ?? []} userId={user.id} />
+          }
+        </div>
 
       </div>
     </div>

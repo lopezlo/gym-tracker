@@ -13,6 +13,13 @@ export function AppProvider({ children }) {
     return s ? Number(s) : null
   })
 
+  // In-memory stats cache keyed by userId — survives navigation, resets on page reload
+  const [statsCache, setStatsCacheState] = useState({})
+
+  const setStatsCache = (userId, data) => {
+    setStatsCacheState(prev => ({ ...prev, [userId]: data }))
+  }
+
   const setActiveSession = (id) => {
     setActiveSessionIdState(id ?? null)
     if (id != null) {
@@ -43,7 +50,11 @@ export function AppProvider({ children }) {
   }
 
   return (
-    <AppContext.Provider value={{ user, selectUser, logout, activeSessionId, setActiveSession }}>
+    <AppContext.Provider value={{
+      user, selectUser, logout,
+      activeSessionId, setActiveSession,
+      statsCache, setStatsCache,
+    }}>
       {children}
     </AppContext.Provider>
   )

@@ -1,4 +1,7 @@
-import { useState, useEffect, useMemo } from 'react'
+import { useState, useEffect, useMemo, useRef } from 'react'
+
+// Module-level cache: persists across React re-mounts (navigation) within the same page session
+const _sessionsCache = {}
 import { ChevronDown, ChevronUp, Edit2, Check, X, Clock, Dumbbell, Trash2, ChevronRight } from 'lucide-react'
 import { api } from '../api/client'
 import ConfirmModal from './ConfirmModal'
@@ -55,7 +58,7 @@ function toUTCString(dateStr, timeStr) {
 }
 
 export default function SessionHistoryList({ userId, onDataChanged }) {
-  const [sessions, setSessions] = useState([])
+  const [sessions, setSessions] = useState(() => _sessionsCache[userId] ?? [])
   const [expanded, setExpanded] = useState(null)
   const [details, setDetails] = useState({})
   const [editingSet, setEditingSet] = useState(null)
@@ -63,12 +66,15 @@ export default function SessionHistoryList({ userId, onDataChanged }) {
   const [editingSession, setEditingSession] = useState(null)
   const [sessionEditValues, setSessionEditValues] = useState({})
   const [confirmModal, setConfirmModal] = useState(null)
-  const [loading, setLoading] = useState(true)
+  const [loading, setLoading] = useState(!_sessionsCache[userId])
   const [expandedYears, setExpandedYears] = useState(() => new Set([new Date().getFullYear()]))
 
   const load = () => {
     api.getSessions(userId, 5000)
-      .then(data => setSessions(data))
+      .then(data => {
+        _sessionsCache[userId] = data
+        setSessions(data)
+      })
       .finally(() => setLoading(false))
   }
 
