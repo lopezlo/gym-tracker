@@ -90,11 +90,20 @@ router.post('/execute', upload.single('file'), async (req, res) => {
     }
     for (const { name, type } of toInsert.values()) {
       const { rows: [ex] } = await client.query(
-        `INSERT INTO exercises (name, type) VALUES ($1, $2)
-         ON CONFLICT (name) DO UPDATE SET name = EXCLUDED.name RETURNING id, name, type`,
+        `INSERT INTO exercises (name, "type") VALUES ($1::text, $2::text)
+         ON CONFLICT (name) DO NOTHING RETURNING id, name, "type" AS type`,
         [name, type]
       )
-      exerciseCache.set(ex.name.toLowerCase(), ex)
+      if (ex) {
+        exerciseCache.set(ex.name.toLowerCase(), ex)
+      } else {
+        // Already existed — fetch it
+        const { rows: [existing] } = await client.query(
+          'SELECT id, name, "type" AS type FROM exercises WHERE LOWER(name) = LOWER($1::text)',
+          [name]
+        )
+        if (existing) exerciseCache.set(existing.name.toLowerCase(), existing)
+      }
     }
 
     // ── 3. Batch-insert all sessions in one query ──
@@ -109,10 +118,10 @@ router.post('/execute', upload.single('file'), async (req, res) => {
     )
     const sessionMap = new Map(sessions.map(s => [s.date, s.id]))
 
-    // ── 4. Build set rows, insert in chunks of 500 (avoids param limit) ──
+    // ── 4. Collect all set tuples, insert in chunks ──
+    // Each chunk rebuilds its own $1..$N parameter numbering
     const CHUNK = 500
-    const setRows  = []  // VALUES strings
-    const setParams = [] // flat param array
+    const allSets = [] // array of [sessionId, exerciseId, weight, reps, duration, dateKey, order]
     let imported = 0
 
     for (const [dateKey, rows] of byDate) {
@@ -128,26 +137,23 @@ router.post('/execute', upload.single('file'), async (req, res) => {
         const weight = columnMap.weight   ? (parseFloat(row[columnMap.weight])  || null) : null
         const reps   = columnMap.reps     ? (parseInt(row[columnMap.reps])       || null) : null
         const raw    = columnMap.duration ? (parseFloat(row[columnMap.duration]) || 0)    : 0
-        const duration = raw
-          ? (durationIsSeconds ? Math.round(raw) : Math.round(raw * 60))
-          : null
+        const duration = raw ? (durationIsSeconds ? Math.round(raw) : Math.round(raw * 60)) : null
 
-        const base = setParams.length
-        setRows.push(
-          `($${base+1}::int, $${base+2}::int, $${base+3}::numeric, $${base+4}::int, $${base+5}::int, ($${base+6}::text || ' 09:00:00')::TIMESTAMP, $${base+7}::int)`
-        )
-        setParams.push(sessionId, exercise.id, weight, reps, duration, dateKey, ++order)
+        allSets.push([sessionId, exercise.id, weight, reps, duration, dateKey, ++order])
         imported++
       }
     }
 
-    for (let i = 0; i < setRows.length; i += CHUNK) {
-      const chunkRows   = setRows.slice(i, i + CHUNK)
-      const chunkParams = setParams.slice(i * 7, (i + CHUNK) * 7)
+    for (let i = 0; i < allSets.length; i += CHUNK) {
+      const chunk = allSets.slice(i, i + CHUNK)
+      // Rebuild $N numbering relative to this chunk (1-based)
+      const values = chunk.map((_, j) => {
+        const b = j * 7
+        return `($${b+1}::int, $${b+2}::int, $${b+3}::numeric, $${b+4}::int, $${b+5}::int, ($${b+6}::text || ' 09:00:00')::TIMESTAMP, $${b+7}::int)`
+      }).join(',')
       await client.query(
-        `INSERT INTO sets (session_id, exercise_id, weight, reps, duration, recorded_at, set_order)
-         VALUES ${chunkRows.join(',')}`,
-        chunkParams
+        `INSERT INTO sets (session_id, exercise_id, weight, reps, duration, recorded_at, set_order) VALUES ${values}`,
+        chunk.flat()
       )
     }
 
