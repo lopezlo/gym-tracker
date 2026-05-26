@@ -6,7 +6,7 @@ import './index.css'
 // Haptic feedback on every button/link tap (Android only — iOS ignores vibrate)
 document.addEventListener('pointerdown', (e) => {
   if (navigator.vibrate && e.pointerType === 'touch' && e.target.closest('button, a, [role="button"]')) {
-    navigator.vibrate(20)
+    navigator.vibrate(15)
   }
 }, { passive: true })
 

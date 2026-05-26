@@ -63,15 +63,13 @@ export default function ProgressChart({ exerciseProgress, defaultExerciseId, use
     try { localStorage.setItem(rangeKey, range) } catch {}
   }, [range, rangeKey])
 
-  // Prune stale IDs; seed default if empty
+  // Prune stale IDs only — never seed a default
   useEffect(() => {
     if (exercises.length === 0) return
     const validIds = exercises.map(e => e.id)
     setSelectedIds(prev => {
       const pruned = prev.filter(id => validIds.includes(id))
-      if (pruned.length > 0) return pruned.length === prev.length ? prev : pruned
-      if (defaultExerciseId && validIds.includes(defaultExerciseId)) return [defaultExerciseId]
-      return [exercises[0].id]
+      return pruned.length === prev.length ? prev : pruned
     })
   }, [exercises])
 
@@ -270,7 +268,11 @@ export default function ProgressChart({ exerciseProgress, defaultExerciseId, use
       </div>
 
       {/* Chart */}
-      {!hasData ? (
+      {selectedIds.length === 0 ? (
+        <div className="text-center py-10 text-slate-500 text-sm">
+          Selecciona un ejercicio para ver su progresión.
+        </div>
+      ) : !hasData ? (
         <div className="text-center py-10 text-slate-500 text-sm">
           Sin datos en el período seleccionado.
         </div>
