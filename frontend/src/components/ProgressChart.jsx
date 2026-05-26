@@ -22,8 +22,15 @@ const CustomTooltip = ({ active, payload, label }) => {
   )
 }
 
-export default function ProgressChart({ exerciseProgress, defaultExerciseId }) {
-  const [selectedIds, setSelectedIds] = useState([])
+export default function ProgressChart({ exerciseProgress, defaultExerciseId, userId }) {
+  const storageKey = `gymlog_chart_${userId ?? 'default'}`
+
+  const [selectedIds, setSelectedIds] = useState(() => {
+    try {
+      const saved = localStorage.getItem(storageKey)
+      return saved ? JSON.parse(saved) : []
+    } catch { return [] }
+  })
   const [dropdownOpen, setDropdownOpen] = useState(false)
   const dropRef = useRef(null)
 
@@ -35,15 +42,23 @@ export default function ProgressChart({ exerciseProgress, defaultExerciseId }) {
     return Object.values(map).sort((a, b) => a.name.localeCompare(b.name))
   }, [exerciseProgress])
 
-  // Initialize selection with default or first exercise
+  // Persist selection to localStorage
   useEffect(() => {
-    if (selectedIds.length > 0) return
-    if (defaultExerciseId && exercises.find(e => e.id === defaultExerciseId)) {
-      setSelectedIds([defaultExerciseId])
-    } else if (exercises.length > 0) {
-      setSelectedIds([exercises[0].id])
-    }
-  }, [exercises, defaultExerciseId])
+    try { localStorage.setItem(storageKey, JSON.stringify(selectedIds)) } catch {}
+  }, [selectedIds, storageKey])
+
+  // Once exercises load: prune stale IDs, and seed a default if selection is empty
+  useEffect(() => {
+    if (exercises.length === 0) return
+    const validIds = exercises.map(e => e.id)
+    setSelectedIds(prev => {
+      const pruned = prev.filter(id => validIds.includes(id))
+      if (pruned.length > 0) return pruned.length === prev.length ? prev : pruned
+      // Nothing valid — pick a default
+      if (defaultExerciseId && validIds.includes(defaultExerciseId)) return [defaultExerciseId]
+      return [exercises[0].id]
+    })
+  }, [exercises])
 
   // Close dropdown on outside click
   useEffect(() => {

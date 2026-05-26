@@ -20,6 +20,8 @@ export default function Import() {
   const [mapping, setMapping] = useState({})
   const [result, setResult] = useState(null)
   const [loading, setLoading] = useState(false)
+  const [uploadProgress, setUploadProgress] = useState(0)   // 0-100
+  const [uploadPhase, setUploadPhase] = useState(null)      // null | 'uploading' | 'processing'
   const [error, setError] = useState('')
 
   const handleFile = async (f) => {
@@ -58,14 +60,22 @@ export default function Import() {
     if (!mapping.exercise) { setError('Debes mapear la columna de ejercicio'); return }
     setLoading(true)
     setError('')
+    setUploadProgress(0)
+    setUploadPhase('uploading')
     try {
-      const res = await api.executeImport(file, user.id, mapping)
+      const res = await api.executeImportWithProgress(file, user.id, mapping, (pct) => {
+        setUploadProgress(pct)
+        if (pct === 100) setUploadPhase('processing')
+      })
       setResult(res)
       setStep('done')
     } catch (e) {
       setError(e.message)
+    } finally {
+      setLoading(false)
+      setUploadPhase(null)
+      setUploadProgress(0)
     }
-    setLoading(false)
   }
 
   const reset = () => {
@@ -164,8 +174,32 @@ export default function Import() {
 
           {error && <p className="text-red-400 text-sm bg-red-500/10 rounded-xl px-4 py-3">{error}</p>}
 
+          {/* Upload progress bar */}
+          {uploadPhase && (
+            <div className="space-y-2">
+              <div className="flex justify-between text-xs text-slate-400">
+                <span>{uploadPhase === 'uploading' ? 'Enviando archivo…' : 'Procesando datos…'}</span>
+                {uploadPhase === 'uploading' && <span>{uploadProgress}%</span>}
+              </div>
+              <div className="w-full bg-slate-700 rounded-full h-1.5 overflow-hidden">
+                {uploadPhase === 'uploading' ? (
+                  <div
+                    className="h-full bg-indigo-500 rounded-full transition-all duration-150"
+                    style={{ width: `${uploadProgress}%` }}
+                  />
+                ) : (
+                  <div className="h-full bg-indigo-400 rounded-full animate-pulse w-full" />
+                )}
+              </div>
+            </div>
+          )}
+
           <div className="grid grid-cols-2 gap-3">
-            <button onClick={reset} className="py-3.5 bg-slate-700 hover:bg-slate-600 text-white rounded-xl font-semibold transition-colors">
+            <button
+              onClick={reset}
+              disabled={loading}
+              className="py-3.5 bg-slate-700 hover:bg-slate-600 disabled:opacity-50 text-white rounded-xl font-semibold transition-colors"
+            >
               Cancelar
             </button>
             <button
@@ -173,7 +207,7 @@ export default function Import() {
               disabled={loading || !mapping.exercise}
               className="py-3.5 bg-indigo-600 hover:bg-indigo-500 disabled:opacity-50 text-white rounded-xl font-semibold transition-colors"
             >
-              {loading ? 'Importando...' : 'Importar'}
+              {loading ? (uploadPhase === 'processing' ? 'Procesando…' : 'Importando…') : 'Importar'}
             </button>
           </div>
         </div>

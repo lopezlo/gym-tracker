@@ -135,14 +135,6 @@ export default function CalendarHeatmap({ data }) {
         </div>
       )}
 
-      {/* Legend */}
-      <div className="flex items-center gap-1.5 mt-2 justify-end">
-        <span className="text-[10px] text-slate-500">Menos</span>
-        {['bg-slate-700/60', 'bg-indigo-900', 'bg-indigo-700', 'bg-indigo-500', 'bg-indigo-400'].map(c => (
-          <div key={c} className={`w-2.5 h-2.5 rounded-[2px] ${c}`} />
-        ))}
-        <span className="text-[10px] text-slate-500">Más</span>
-      </div>
     </div>
   )
 }

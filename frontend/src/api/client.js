@@ -54,4 +54,27 @@ export const api = {
     fd.append('mapping', JSON.stringify(mapping))
     return req('POST', '/import/execute', fd, true)
   },
+
+  executeImportWithProgress: (file, userId, mapping, onUploadProgress) => {
+    return new Promise((resolve, reject) => {
+      const fd = new FormData()
+      fd.append('file', file)
+      fd.append('user_id', String(userId))
+      fd.append('mapping', JSON.stringify(mapping))
+      const xhr = new XMLHttpRequest()
+      xhr.open('POST', BASE + '/import/execute')
+      xhr.upload.onprogress = (e) => {
+        if (e.lengthComputable) onUploadProgress?.(Math.round((e.loaded / e.total) * 100))
+      }
+      xhr.onload = () => {
+        try {
+          const data = JSON.parse(xhr.responseText)
+          if (xhr.status >= 200 && xhr.status < 300) resolve(data)
+          else reject(new Error(data.error || xhr.statusText))
+        } catch { reject(new Error('Respuesta inválida del servidor')) }
+      }
+      xhr.onerror = () => reject(new Error('Error de red'))
+      xhr.send(fd)
+    })
+  },
 }

@@ -42,8 +42,8 @@ export default function Dashboard() {
 
   const totalSessions = stats?.calendarData?.reduce((a, d) => a + d.session_count, 0) ?? 0
   const totalMinutes = stats?.calendarData?.reduce((a, d) => a + d.total_minutes, 0) ?? 0
-  const thisWeek = stats?.calendarData?.filter(d =>
-    dayjs(d.date).isAfter(dayjs().subtract(7, 'day'))
+  const thisYear = stats?.calendarData?.filter(d =>
+    dayjs(d.date).year() === dayjs().year()
   ).length ?? 0
 
   const fmtTime = (mins) => {
@@ -88,7 +88,7 @@ export default function Dashboard() {
             {[
               { icon: Flame, label: 'Sesiones', value: totalSessions },
               { icon: Clock, label: 'Tiempo total', value: fmtTime(totalMinutes) },
-              { icon: Calendar, label: 'Esta semana', value: thisWeek },
+              { icon: Calendar, label: 'Este año', value: thisYear },
             ].map(({ icon: Icon, label, value }) => (
               <div key={label} className="bg-slate-800 rounded-2xl p-3 text-center">
                 <Icon size={18} className="text-indigo-400 mx-auto mb-1" />

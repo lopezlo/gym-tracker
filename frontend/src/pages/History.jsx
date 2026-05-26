@@ -57,7 +57,7 @@ export default function History() {
         ) : (
           <div className="bg-slate-800 rounded-2xl p-4">
             <h2 className="text-sm font-semibold text-slate-300 mb-4">Evolución por ejercicio</h2>
-            <ProgressChart exerciseProgress={stats?.exerciseProgress ?? []} />
+            <ProgressChart exerciseProgress={stats?.exerciseProgress ?? []} userId={user.id} />
           </div>
         )}
 
