@@ -1,4 +1,4 @@
-import { useState, useEffect } from 'react'
+import { useState, useEffect, useRef } from 'react'
 import { Outlet, NavLink, useNavigate, useLocation } from 'react-router-dom'
 import { LayoutDashboard, BarChart2, Activity } from 'lucide-react'
 import { useApp } from '../context/AppContext'
@@ -14,6 +14,35 @@ export default function MainLayout() {
   const [starting, setStarting] = useState(false)
   const [ending, setEnding] = useState(false)
   const [endSessionInfo, setEndSessionInfo] = useState(null)
+  const [fadeOut, setFadeOut] = useState(false)
+  const touchStartX = useRef(null)
+  const touchStartY = useRef(null)
+
+  const triggerSwipeNav = (path) => {
+    setFadeOut(true)
+    setTimeout(() => {
+      navigate(path)
+      setFadeOut(false)
+    }, 150)
+  }
+
+  const handleTouchStart = (e) => {
+    touchStartX.current = e.touches[0].clientX
+    touchStartY.current = e.touches[0].clientY
+  }
+
+  const handleTouchEnd = (e) => {
+    if (touchStartX.current === null) return
+    const dx = e.changedTouches[0].clientX - touchStartX.current
+    const dy = e.changedTouches[0].clientY - touchStartY.current
+    touchStartX.current = null
+    touchStartY.current = null
+    if (Math.abs(dx) < 60 || Math.abs(dx) <= Math.abs(dy) * 1.5) return
+    const onDashboard = location.pathname.startsWith('/dashboard')
+    const onHistory   = location.pathname.startsWith('/history')
+    if (dx < 0 && onDashboard)  triggerSwipeNav('/history')
+    if (dx > 0 && onHistory)    triggerSwipeNav('/dashboard')
+  }
 
   // Load session summary when end modal opens
   useEffect(() => {
@@ -85,7 +114,15 @@ export default function MainLayout() {
 
   return (
     <div className="flex flex-col h-full bg-slate-900">
-      <div className="flex-1 overflow-hidden">
+      <div
+        className="flex-1 overflow-hidden"
+        onTouchStart={handleTouchStart}
+        onTouchEnd={handleTouchEnd}
+        style={{
+          opacity: fadeOut ? 0 : 1,
+          transition: fadeOut ? 'opacity 150ms ease' : 'none',
+        }}
+      >
         <Outlet />
       </div>
 

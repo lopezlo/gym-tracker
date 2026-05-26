@@ -162,6 +162,48 @@ export default function ProgressChart({ exerciseProgress, defaultExerciseId, use
     return { chartData: data, maxPoints: maxVal }
   }, [selectedIds, filteredProgress, exercises])
 
+  // Records summary per selected exercise
+  const summaryData = useMemo(() => {
+    return selectedIds.map(exId => {
+      const exercise = exercises.find(e => e.id === exId)
+      if (!exercise) return null
+
+      const sorted = filteredProgress
+        .filter(s => s.exercise_id === exId)
+        .sort((a, b) => a.date.localeCompare(b.date))
+      if (!sorted.length) return { id: exId, exercise, noData: true }
+
+      // Aggregate by date
+      const byDate = {}
+      sorted.forEach(s => {
+        if (!byDate[s.date]) byDate[s.date] = { maxWeight: null, totalReps: 0, maxDuration: null }
+        const d = byDate[s.date]
+        if (exercise.type === 'reps') {
+          if (s.weight != null && (d.maxWeight === null || s.weight > d.maxWeight)) d.maxWeight = s.weight
+          if (s.reps != null) d.totalReps += s.reps
+        } else {
+          const mins = s.duration != null ? Math.round(s.duration / 60 * 2) / 2 : null
+          if (mins != null && (d.maxDuration === null || mins > d.maxDuration)) d.maxDuration = mins
+        }
+      })
+
+      const getValue = d => exercise.type === 'reps' ? d.maxWeight : d.maxDuration
+      const unit     = exercise.type === 'reps' ? 'kg' : 'min'
+
+      const dateEntries = Object.entries(byDate).sort((a, b) => a[0].localeCompare(b[0]))
+      const firstEntry  = dateEntries[0]
+      const lastEntry   = dateEntries[dateEntries.length - 1]
+
+      const firstVal = getValue(firstEntry[1])
+      const lastVal  = getValue(lastEntry[1])
+      const best     = maxPoints[exId]
+
+      const diff = (firstVal != null && lastVal != null) ? +(lastVal - firstVal).toFixed(1) : null
+
+      return { id: exId, exercise, unit, best, lastVal, lastDate: lastEntry[0], diff }
+    }).filter(Boolean)
+  }, [selectedIds, filteredProgress, exercises, maxPoints])
+
   const unselected = exercises.filter(e => !selectedIds.includes(e.id))
   const hasData = chartData.length > 0 && selectedIds.length > 0
 
@@ -306,6 +348,53 @@ export default function ProgressChart({ exerciseProgress, defaultExerciseId, use
           </button>
         ))}
       </div>
+
+      {/* Records summary */}
+      {hasData && summaryData.length > 0 && (
+        <div className="space-y-2 pt-1">
+          {summaryData.map((row, idx) => {
+            if (!row || row.noData) return null
+            const color = CHART_COLORS[selectedIds.indexOf(row.id) % CHART_COLORS.length]
+            return (
+              <div
+                key={row.id}
+                className="flex items-center gap-3 bg-slate-800/60 rounded-xl px-3 py-2.5"
+              >
+                {/* Color dot */}
+                <span
+                  className="w-2 h-2 rounded-full flex-shrink-0"
+                  style={{ backgroundColor: color }}
+                />
+                {/* Name */}
+                <span className="flex-1 text-xs font-medium text-slate-300 truncate">{row.exercise.name}</span>
+                {/* Best */}
+                <div className="text-right flex-shrink-0">
+                  <p className="text-[10px] text-slate-500 leading-none mb-0.5">récord</p>
+                  <p className="text-xs font-bold text-white">
+                    {row.best ? `${row.best.value}${row.unit}` : '—'}
+                  </p>
+                </div>
+                {/* Divider */}
+                <div className="w-px h-7 bg-slate-700 flex-shrink-0" />
+                {/* Last + diff */}
+                <div className="text-right flex-shrink-0 min-w-[56px]">
+                  <p className="text-[10px] text-slate-500 leading-none mb-0.5">
+                    {dayjs(row.lastDate).format('D MMM')}
+                  </p>
+                  <p className="text-xs font-semibold text-slate-200">
+                    {row.lastVal != null ? `${row.lastVal}${row.unit}` : '—'}
+                    {row.diff !== null && row.diff !== 0 && (
+                      <span className={`ml-1 text-[10px] ${row.diff > 0 ? 'text-emerald-400' : 'text-red-400'}`}>
+                        {row.diff > 0 ? '+' : ''}{row.diff}
+                      </span>
+                    )}
+                  </p>
+                </div>
+              </div>
+            )
+          })}
+        </div>
+      )}
     </div>
   )
 }
