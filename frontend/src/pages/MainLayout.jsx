@@ -41,7 +41,7 @@ export default function MainLayout() {
 
   const handleCenterPress = () => {
     if (activeSessionId) {
-      setShowEndModal(true)
+      navigate(`/session/${activeSessionId}`)
     } else {
       setShowStartModal(true)
     }
