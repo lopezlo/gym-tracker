@@ -2,6 +2,13 @@ import { X } from 'lucide-react'
 
 const CHANGELOG = [
   {
+    version: '1.5.8',
+    date: '27 may 2026',
+    changes: [
+      'Selector de ejercicio: margen superior siempre visible al abrir sin teclado. Usa CSS calc(100% - 60px) para evitar desbordamiento independientemente del valor JS del viewport.',
+    ],
+  },
+  {
     version: '1.5.7',
     date: '27 may 2026',
     changes: [

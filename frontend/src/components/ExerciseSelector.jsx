@@ -48,10 +48,16 @@ export default function ExerciseSelector({ userId, onSelect, onClose }) {
     }
   }, [])
 
-  // Keyboard is considered open when available drops >150 px from baseline
+  // Keyboard is considered open when available drops >150 px from baseline.
+  // When keyboard is CLOSED we use a CSS calc so the gap is always relative
+  // to the real container (100% = fixed inset-0 parent), regardless of what
+  // JS reports for the viewport — JS pixel values can be inaccurate on Android.
+  // When keyboard is OPEN we need a JS pixel value because the container may
+  // not have shrunk (old Chrome), so only vv.height is reliable.
   const keyboardOpen = available < maxAvailRef.current - 150
-  const topMargin    = keyboardOpen ? MARGIN_OPEN : MARGIN_CLOSED
-  const modalHeight  = available - topMargin
+  const modalHeight  = keyboardOpen
+    ? `${available - MARGIN_OPEN}px`
+    : `calc(100% - ${MARGIN_CLOSED}px)`
 
   // ── Data ──────────────────────────────────────────────────────────────────
 
