@@ -12,18 +12,18 @@ export default function ExerciseSelector({ userId, onSelect, onClose }) {
   const inputRef = useRef(null)
 
   // ── Keyboard-aware positioning via visualViewport ─────────────────────────
-  const [kbOffset, setKbOffset] = useState(0)
-  const [maxH, setMaxH] = useState(window.innerHeight * 0.82)
+  // Anchor the backdrop/sheet container to the *visual* viewport so it always
+  // sits exactly in the visible area regardless of whether the browser resizes
+  // the layout viewport when the keyboard opens (new Chrome) or not (old).
+  const [vp, setVp] = useState(() => {
+    const vv = window.visualViewport
+    return { top: vv?.offsetTop ?? 0, height: vv?.height ?? window.innerHeight }
+  })
 
   useEffect(() => {
     const vv = window.visualViewport
     if (!vv) return
-    const update = () => {
-      const offset = Math.max(0, window.innerHeight - vv.offsetTop - vv.height)
-      setKbOffset(offset)
-      setMaxH(Math.min(vv.height * 0.92, window.innerHeight * 0.82))
-    }
-    update()
+    const update = () => setVp({ top: vv.offsetTop, height: vv.height })
     vv.addEventListener('resize', update)
     vv.addEventListener('scroll', update)
     return () => {
@@ -59,15 +59,14 @@ export default function ExerciseSelector({ userId, onSelect, onClose }) {
   }
 
   return (
-    <div className="fixed inset-0 z-50 flex items-end">
+    <div
+      className="fixed left-0 right-0 z-50 flex flex-col justify-end"
+      style={{ top: vp.top, height: vp.height }}
+    >
       <div className="absolute inset-0 bg-black/60" onClick={onClose} />
       <div
         className="relative w-full bg-slate-800 rounded-t-3xl flex flex-col"
-        style={{
-          maxHeight: `${maxH}px`,
-          transform: `translateY(-${kbOffset}px)`,
-          transition: 'transform 200ms ease-out, max-height 200ms ease-out',
-        }}
+        style={{ maxHeight: `${vp.height * 0.92}px` }}
       >
         {/* Handle */}
         <div className="flex justify-center pt-3 pb-1">
