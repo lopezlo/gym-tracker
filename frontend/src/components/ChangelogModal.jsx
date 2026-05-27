@@ -2,6 +2,27 @@ import { X } from 'lucide-react'
 
 const CHANGELOG = [
   {
+    version: '1.5.3',
+    date: '27 may 2026',
+    changes: [
+      'Corrección: modal de ejercicios quedaba flotante al cerrar el teclado en Android',
+    ],
+  },
+  {
+    version: '1.5.2',
+    date: '27 may 2026',
+    changes: [
+      'Corrección: hueco negro entre el selector de ejercicio y el teclado (doble offset)',
+    ],
+  },
+  {
+    version: '1.5.1',
+    date: '27 may 2026',
+    changes: [
+      'Selector de ejercicio: se desplaza encima del teclado al escribir (visualViewport)',
+    ],
+  },
+  {
     version: '1.5.0',
     date: '27 may 2026',
     changes: [
