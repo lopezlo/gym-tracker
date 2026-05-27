@@ -2,6 +2,13 @@ import { X } from 'lucide-react'
 
 const CHANGELOG = [
   {
+    version: '1.5.7',
+    date: '27 may 2026',
+    changes: [
+      'Selector de ejercicio: margen de 60 px sin teclado y 30 px con teclado abierto. Corregido el cálculo de altura para que el margen siempre sea visible.',
+    ],
+  },
+  {
     version: '1.5.6',
     date: '27 may 2026',
     changes: [

@@ -2,7 +2,8 @@ import { useState, useEffect, useRef } from 'react'
 import { Search, Plus, X, Clock, Dumbbell } from 'lucide-react'
 import { api } from '../api/client'
 
-const TOP_MARGIN = 60 // px gap between modal top and screen top
+const MARGIN_CLOSED = 60  // px gap when keyboard is NOT open
+const MARGIN_OPEN   = 30  // px gap when keyboard IS open
 
 export default function ExerciseSelector({ userId, onSelect, onClose }) {
   const [exercises, setExercises] = useState([])
@@ -14,19 +15,27 @@ export default function ExerciseSelector({ userId, onSelect, onClose }) {
   const inputRef = useRef(null)
 
   // ── Height tracking ───────────────────────────────────────────────────────
-  // Use the MINIMUM of window.innerHeight and visualViewport.height so we
-  // handle both Chrome behaviors (layout-viewport-resizes vs doesn't).
-  // Three event sources as fallbacks: vv.resize, window.resize, focusout.
+  // document.documentElement.clientHeight matches what `fixed inset-0` uses
+  // (the CSS viewport), unlike window.innerHeight which can return the "large
+  // viewport" on Android Chrome and cause the panel to overflow its container.
+  // We also take Math.min with vv.height to handle old Chrome (where only the
+  // visual viewport shrinks when the keyboard opens).
   const getAvailable = () =>
     Math.min(
-      window.innerHeight,
-      window.visualViewport?.height ?? window.innerHeight
+      document.documentElement.clientHeight,
+      window.visualViewport?.height ?? document.documentElement.clientHeight
     )
 
+  // Track the maximum seen height → that's our keyboard-closed baseline.
+  const maxAvailRef = useRef(getAvailable())
   const [available, setAvailable] = useState(getAvailable)
 
   useEffect(() => {
-    const update = () => setAvailable(getAvailable())
+    const update = () => {
+      const v = getAvailable()
+      if (v > maxAvailRef.current) maxAvailRef.current = v
+      setAvailable(v)
+    }
     window.visualViewport?.addEventListener('resize', update)
     window.addEventListener('resize', update)
     // Fallback: keyboard closing means an input lost focus
@@ -39,7 +48,10 @@ export default function ExerciseSelector({ userId, onSelect, onClose }) {
     }
   }, [])
 
-  const modalHeight = available - TOP_MARGIN
+  // Keyboard is considered open when available drops >150 px from baseline
+  const keyboardOpen = available < maxAvailRef.current - 150
+  const topMargin    = keyboardOpen ? MARGIN_OPEN : MARGIN_CLOSED
+  const modalHeight  = available - topMargin
 
   // ── Data ──────────────────────────────────────────────────────────────────
 
