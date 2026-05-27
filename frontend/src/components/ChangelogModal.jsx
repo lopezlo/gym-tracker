@@ -2,6 +2,13 @@ import { X } from 'lucide-react'
 
 const CHANGELOG = [
   {
+    version: '1.5.4',
+    date: '27 may 2026',
+    changes: [
+      'Selector de ejercicio: eliminado el tracking JS del teclado (causaba modal flotante). Ahora usa CSS dvh nativo, sin bugs.',
+    ],
+  },
+  {
     version: '1.5.3',
     date: '27 may 2026',
     changes: [

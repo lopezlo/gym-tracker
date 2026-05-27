@@ -11,28 +11,6 @@ export default function ExerciseSelector({ userId, onSelect, onClose }) {
   const [loading, setLoading] = useState(true)
   const inputRef = useRef(null)
 
-  // ── Keyboard-aware positioning via visualViewport ─────────────────────────
-  // Anchor the backdrop/sheet container to the *visual* viewport so it always
-  // sits exactly in the visible area regardless of whether the browser resizes
-  // the layout viewport when the keyboard opens (new Chrome) or not (old).
-  const [vpHeight, setVpHeight] = useState(
-    () => window.visualViewport?.height ?? window.innerHeight
-  )
-
-  useEffect(() => {
-    const vv = window.visualViewport
-    if (!vv) return
-    // Only track height — ignore offsetTop, which Chrome changes during
-    // scroll/keyboard transitions and causes the floating-modal bug.
-    const update = () => setVpHeight(vv.height)
-    vv.addEventListener('resize', update)
-    vv.addEventListener('scroll', update)
-    return () => {
-      vv.removeEventListener('resize', update)
-      vv.removeEventListener('scroll', update)
-    }
-  }, [])
-
   useEffect(() => {
     api.getExercises(userId).then(setExercises).finally(() => setLoading(false))
   }, [])
@@ -60,14 +38,17 @@ export default function ExerciseSelector({ userId, onSelect, onClose }) {
   }
 
   return (
-    <div
-      className="fixed top-0 left-0 right-0 z-50 flex flex-col justify-end"
-      style={{ height: vpHeight }}
-    >
+    <div className="fixed inset-0 z-50 flex items-end">
       <div className="absolute inset-0 bg-black/60" onClick={onClose} />
+      {/*
+        max-h uses dvh (dynamic viewport height) — a CSS unit that Chrome/Android
+        updates automatically when the keyboard opens, no JavaScript needed.
+        The fixed+inset-0 container already repositions above the keyboard on
+        modern Chrome (which resizes the layout viewport on keyboard open).
+      */}
       <div
         className="relative w-full bg-slate-800 rounded-t-3xl flex flex-col"
-        style={{ maxHeight: `${vpHeight * 0.92}px` }}
+        style={{ maxHeight: '92dvh' }}
       >
         {/* Handle */}
         <div className="flex justify-center pt-3 pb-1">
