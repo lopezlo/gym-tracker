@@ -13,7 +13,6 @@ export default function ExerciseSelector({ userId, onSelect, onClose }) {
 
   useEffect(() => {
     api.getExercises(userId).then(setExercises).finally(() => setLoading(false))
-    setTimeout(() => inputRef.current?.focus(), 100)
   }, [])
 
   const filtered = exercises.filter(e =>
@@ -49,7 +48,7 @@ export default function ExerciseSelector({ userId, onSelect, onClose }) {
 
         <div className="px-4 pb-2">
           <div className="flex items-center justify-between mb-3">
-            <h2 className="text-white font-bold text-lg">Ejercicio</h2>
+            <h2 className="text-white font-semibold text-base leading-tight">Selecciona el ejercicio realizado</h2>
             <button onClick={onClose} className="p-2 text-slate-500 hover:text-white">
               <X size={20} />
             </button>

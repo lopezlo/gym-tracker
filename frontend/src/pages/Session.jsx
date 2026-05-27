@@ -279,7 +279,7 @@ export default function Session() {
                         type="number" inputMode="decimal" value={duration}
                         onChange={e => setDuration(e.target.value)} placeholder="0"
                         step="0.5"
-                        className="flex-1 bg-slate-700 text-white text-center rounded-xl py-2.5 outline-none focus:ring-2 focus:ring-amber-500 text-lg font-bold"
+                        className="flex-1 min-w-0 w-0 bg-slate-700 text-white text-center rounded-xl py-2.5 outline-none focus:ring-2 focus:ring-amber-500 text-lg font-bold"
                       />
                       <button onClick={() => step(duration, setDuration, 0.5, true)} className="w-10 h-10 bg-slate-700 hover:bg-slate-600 rounded-xl text-white font-bold flex-shrink-0 transition-colors">+</button>
                     </div>

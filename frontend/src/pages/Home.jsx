@@ -3,6 +3,7 @@ import { useNavigate } from 'react-router-dom'
 import { Plus, Trash2, Dumbbell, Download, AlertTriangle, X, Camera } from 'lucide-react'
 import { api } from '../api/client'
 import { useApp } from '../context/AppContext'
+import ChangelogModal from '../components/ChangelogModal'
 
 function DeleteModal({ user, onConfirm, onCancel }) {
   const [downloaded, setDownloaded] = useState(false)
@@ -99,6 +100,7 @@ export default function Home() {
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState('')
   const [pendingDelete, setPendingDelete] = useState(null)
+  const [showChangelog, setShowChangelog] = useState(false)
   const fileInputRef = useRef(null)
   const [avatarUserId, setAvatarUserId] = useState(null)
 
@@ -282,10 +284,19 @@ export default function Home() {
       />
 
       {/* Legal footer */}
-      <p className="text-center text-slate-700 text-xs mt-8 space-y-0.5">
+      <p className="text-center text-slate-700 text-xs mt-8">
         No se almacenan datos personales. Solo se registran los ejercicios realizados.
-        <br />v{__APP_VERSION__} · {__BUILD_DATE__}
+        <br />
+        <button
+          onClick={() => setShowChangelog(true)}
+          className="underline hover:text-slate-500 transition-colors"
+        >
+          v{__APP_VERSION__}
+        </button>
+        {' · '}{__BUILD_DATE__}
       </p>
+
+      {showChangelog && <ChangelogModal onClose={() => setShowChangelog(false)} />}
 
       {/* Delete confirmation modal */}
       {pendingDelete && (

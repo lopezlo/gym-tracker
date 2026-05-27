@@ -2,7 +2,18 @@ import { useState, useEffect, useMemo, useRef } from 'react'
 
 // Module-level cache: persists across React re-mounts (navigation) within the same page session
 const _sessionsCache = {}
-import { ChevronDown, ChevronUp, Edit2, Check, X, Clock, Dumbbell, Trash2, ChevronRight } from 'lucide-react'
+import {
+  ChevronDown, ChevronUp, Edit2, Check, X, Clock, Dumbbell,
+  Trash2, ChevronRight, MoreHorizontal, GripVertical,
+} from 'lucide-react'
+import {
+  DndContext, closestCenter, PointerSensor, useSensor, useSensors,
+} from '@dnd-kit/core'
+import {
+  SortableContext, verticalListSortingStrategy,
+  useSortable, arrayMove,
+} from '@dnd-kit/sortable'
+import { CSS } from '@dnd-kit/utilities'
 import { api } from '../api/client'
 import ConfirmModal from './ConfirmModal'
 import dayjs from 'dayjs'
@@ -57,6 +68,43 @@ function toUTCString(dateStr, timeStr) {
   return `${d.getUTCFullYear()}-${pad(d.getUTCMonth() + 1)}-${pad(d.getUTCDate())} ${pad(d.getUTCHours())}:${pad(d.getUTCMinutes())}:00`
 }
 
+// ── Sortable wrappers ──────────────────────────────────────────────────────────
+
+function SortableExerciseGroup({ id, children }) {
+  const { attributes, listeners, setNodeRef, transform, transition, isDragging } = useSortable({ id })
+  return (
+    <div
+      ref={setNodeRef}
+      style={{
+        transform: CSS.Transform.toString(transform),
+        transition,
+        opacity: isDragging ? 0.4 : 1,
+        zIndex: isDragging ? 10 : undefined,
+      }}
+    >
+      {children({ dragHandleProps: { ...attributes, ...listeners } })}
+    </div>
+  )
+}
+
+function SortableSetRow({ id, children }) {
+  const { attributes, listeners, setNodeRef, transform, transition, isDragging } = useSortable({ id })
+  return (
+    <div
+      ref={setNodeRef}
+      style={{
+        transform: CSS.Transform.toString(transform),
+        transition,
+        opacity: isDragging ? 0.4 : 1,
+      }}
+    >
+      {children({ dragHandleProps: { ...attributes, ...listeners } })}
+    </div>
+  )
+}
+
+// ── Main component ─────────────────────────────────────────────────────────────
+
 export default function SessionHistoryList({ userId, onDataChanged }) {
   const [sessions, setSessions] = useState(() => _sessionsCache[userId] ?? [])
   const [expanded, setExpanded] = useState(null)
@@ -68,6 +116,12 @@ export default function SessionHistoryList({ userId, onDataChanged }) {
   const [confirmModal, setConfirmModal] = useState(null)
   const [loading, setLoading] = useState(!_sessionsCache[userId])
   const [expandedYears, setExpandedYears] = useState(() => new Set([new Date().getFullYear()]))
+  const [openMenu, setOpenMenu] = useState(null) // 'session_123' | 'set_456' | null
+
+  // DnD sensors — PointerSensor covers both mouse and touch
+  const sensors = useSensors(
+    useSensor(PointerSensor, { activationConstraint: { distance: 8 } })
+  )
 
   const load = () => {
     api.getSessions(userId, 5000)
@@ -80,6 +134,14 @@ export default function SessionHistoryList({ userId, onDataChanged }) {
 
   useEffect(() => { load() }, [userId])
 
+  // Close any open menu on outside tap
+  useEffect(() => {
+    if (!openMenu) return
+    const close = () => setOpenMenu(null)
+    document.addEventListener('pointerdown', close)
+    return () => document.removeEventListener('pointerdown', close)
+  }, [openMenu])
+
   const toggleExpand = async (id) => {
     if (expanded === id) { setExpanded(null); return }
     setExpanded(id)
@@ -89,10 +151,11 @@ export default function SessionHistoryList({ userId, onDataChanged }) {
     }
   }
 
-  // ── Set editing ──
+  // ── Set editing ──────────────────────────────────────────────────────────────
 
   const startEdit = (set) => {
     setEditingSet(set.id)
+    setOpenMenu(null)
     const d = toUTC(set.recorded_at)
     setEditValues({
       weight: set.weight != null ? String(set.weight) : '',
@@ -145,13 +208,14 @@ export default function SessionHistoryList({ userId, onDataChanged }) {
     onDataChanged?.()
   }
 
-  // ── Session editing ──
+  // ── Session editing ──────────────────────────────────────────────────────────
 
   const startSessionEdit = (session) => {
     const { date, time: startTime } = toLocalDatetime(session.started_at)
     const { time: endTime } = session.ended_at ? toLocalDatetime(session.ended_at) : { time: '' }
     setSessionEditValues({ date, startTime, endTime })
     setEditingSession(session.id)
+    setOpenMenu(null)
   }
 
   const saveSessionEdit = async (session) => {
@@ -176,6 +240,52 @@ export default function SessionHistoryList({ userId, onDataChanged }) {
     setDetails(prev => { const d = { ...prev }; delete d[sessionId]; return d })
     onDataChanged?.()
   }
+
+  // ── Drag-to-reorder ──────────────────────────────────────────────────────────
+
+  const handleGroupDragEnd = (sessionId) => (event) => {
+    const { active, over } = event
+    if (!active || !over || active.id === over.id) return
+    const session = details[sessionId]
+    if (!session) return
+    const groups = groupByExercise(session.sets)
+    const oldIndex = groups.findIndex(g => g.exercise_id === active.id)
+    const newIndex = groups.findIndex(g => g.exercise_id === over.id)
+    if (oldIndex < 0 || newIndex < 0) return
+    const newGroups = arrayMove(groups, oldIndex, newIndex)
+    const newFlatSets = newGroups.flatMap(g => g.sets)
+    const newSetIds = newFlatSets.map(s => s.id)
+    // Optimistic update
+    const prevSets = session.sets
+    setDetails(prev => ({ ...prev, [sessionId]: { ...prev[sessionId], sets: newFlatSets } }))
+    api.reorderSets(sessionId, newSetIds).catch(() => {
+      setDetails(prev => ({ ...prev, [sessionId]: { ...prev[sessionId], sets: prevSets } }))
+    })
+  }
+
+  const handleSetDragEnd = (sessionId, exerciseId) => (event) => {
+    const { active, over } = event
+    if (!active || !over || active.id === over.id) return
+    const session = details[sessionId]
+    if (!session) return
+    const flatSets = session.sets
+    const groupPositions = flatSets.map((s, i) => s.exercise_id === exerciseId ? i : -1).filter(i => i >= 0)
+    const groupSets = groupPositions.map(i => flatSets[i])
+    const oldIdx = groupSets.findIndex(s => s.id === active.id)
+    const newIdx = groupSets.findIndex(s => s.id === over.id)
+    if (oldIdx < 0 || newIdx < 0) return
+    const newGroupSets = arrayMove(groupSets, oldIdx, newIdx)
+    const newFlatSets = [...flatSets]
+    groupPositions.forEach((pos, i) => { newFlatSets[pos] = newGroupSets[i] })
+    const newSetIds = newFlatSets.map(s => s.id)
+    const prevSets = flatSets
+    setDetails(prev => ({ ...prev, [sessionId]: { ...prev[sessionId], sets: newFlatSets } }))
+    api.reorderSets(sessionId, newSetIds).catch(() => {
+      setDetails(prev => ({ ...prev, [sessionId]: { ...prev[sessionId], sets: prevSets } }))
+    })
+  }
+
+  // ── Year grouping ────────────────────────────────────────────────────────────
 
   const sessionsByYear = useMemo(() => {
     const map = {}
@@ -235,217 +345,311 @@ export default function SessionHistoryList({ userId, onDataChanged }) {
               {isExpanded && (
                 <div className="space-y-2">
                   {yearSessions.map((session, idx) => {
-          const isOpen = expanded === session.id
-          const isEditingThis = editingSession === session.id
-          const detail = details[session.id]
-          const groups = detail ? groupByExercise(detail.sets) : []
-          const dur = fmtSessionDuration(session)
+                    const isOpen = expanded === session.id
+                    const isEditingThis = editingSession === session.id
+                    const detail = details[session.id]
+                    const groups = detail ? groupByExercise(detail.sets) : []
+                    const dur = fmtSessionDuration(session)
+                    const sessionMenuKey = `session_${session.id}`
 
-          return (
-            <div
-              key={session.id}
-              className="bg-slate-800 rounded-2xl overflow-hidden row-in"
-              style={{ animationDelay: `${Math.min(idx, 5) * 45}ms` }}
-            >
-
-              {/* Session header — edit mode */}
-              {isEditingThis ? (
-                <div className="p-4 space-y-3">
-                  <p className="text-slate-400 text-xs font-semibold uppercase tracking-wide">Editar sesión</p>
-                  <div className="space-y-2">
-                    <div>
-                      <label className="text-xs text-slate-400 block mb-1">Fecha</label>
-                      <input
-                        type="date"
-                        value={sessionEditValues.date}
-                        onChange={e => setSessionEditValues(v => ({ ...v, date: e.target.value }))}
-                        className="w-full bg-slate-700 text-white rounded-xl px-3 py-2 text-sm outline-none focus:ring-2 focus:ring-indigo-500"
-                      />
-                    </div>
-                    <div className="grid grid-cols-2 gap-2">
-                      <div>
-                        <label className="text-xs text-slate-400 block mb-1">Inicio</label>
-                        <input
-                          type="time"
-                          value={sessionEditValues.startTime}
-                          onChange={e => setSessionEditValues(v => ({ ...v, startTime: e.target.value }))}
-                          className="w-full bg-slate-700 text-white rounded-xl px-3 py-2 text-sm outline-none focus:ring-2 focus:ring-indigo-500"
-                        />
-                      </div>
-                      {session.ended_at && (
-                        <div>
-                          <label className="text-xs text-slate-400 block mb-1">Fin</label>
-                          <input
-                            type="time"
-                            value={sessionEditValues.endTime}
-                            onChange={e => setSessionEditValues(v => ({ ...v, endTime: e.target.value }))}
-                            className="w-full bg-slate-700 text-white rounded-xl px-3 py-2 text-sm outline-none focus:ring-2 focus:ring-indigo-500"
-                          />
-                        </div>
-                      )}
-                    </div>
-                  </div>
-                  <div className="flex gap-2">
-                    <button
-                      onClick={() => setEditingSession(null)}
-                      className="flex-1 py-2.5 bg-slate-700 hover:bg-slate-600 text-slate-300 rounded-xl text-sm font-medium transition-colors"
-                    >
-                      Cancelar
-                    </button>
-                    <button
-                      onClick={() => saveSessionEdit(session)}
-                      className="flex-1 py-2.5 bg-indigo-600 hover:bg-indigo-500 text-white rounded-xl text-sm font-semibold transition-colors"
-                    >
-                      Guardar
-                    </button>
-                  </div>
-                </div>
-              ) : (
-                /* Session header — normal mode */
-                <div className="flex items-center group">
-                  <button
-                    onClick={() => toggleExpand(session.id)}
-                    className="flex-1 flex items-center justify-between px-4 py-3.5 text-left min-w-0"
-                  >
-                    <div className="min-w-0">
-                      <p className="text-white font-semibold text-sm capitalize">
-                        {dayjs(toUTC(session.started_at)).format('ddd D MMM YYYY')}
-                        {session.edited_at && <span className="text-slate-600 text-xs font-normal ml-2">editado</span>}
-                      </p>
-                      <p className="text-slate-500 text-xs mt-0.5">
-                        {session.exercise_count} ejercicio{session.exercise_count !== 1 ? 's' : ''}
-                        {' · '}{session.set_count} serie{session.set_count !== 1 ? 's' : ''}
-                        {dur && ` · ${dur}`}
-                        {!session.ended_at && <span className="text-amber-400 ml-1">• en curso</span>}
-                      </p>
-                    </div>
-                    {isOpen
-                      ? <ChevronUp size={16} className="text-slate-500 flex-shrink-0 ml-2" />
-                      : <ChevronDown size={16} className="text-slate-500 flex-shrink-0 ml-2" />}
-                  </button>
-
-                  {/* Session action buttons */}
-                  <div className="flex items-center gap-0.5 pr-2 opacity-0 group-hover:opacity-100 transition-opacity flex-shrink-0">
-                    <button
-                      onClick={() => startSessionEdit(session)}
-                      className="p-1.5 rounded-lg text-slate-600 hover:text-indigo-400 hover:bg-indigo-500/10 transition-colors"
-                      title="Editar sesión"
-                    >
-                      <Edit2 size={13} />
-                    </button>
-                    <button
-                      onClick={() => setConfirmModal({
-                        title: `¿Eliminar sesión del ${dayjs(toUTC(session.started_at)).format('D MMM')}?`,
-                        message: 'Se eliminarán todas las series de esta sesión.',
-                        confirmLabel: 'Eliminar',
-                        danger: true,
-                        onConfirm: () => { setConfirmModal(null); deleteSession(session.id) },
-                      })}
-                      className="p-1.5 rounded-lg text-slate-600 hover:text-red-400 hover:bg-red-500/10 transition-colors"
-                      title="Eliminar sesión"
-                    >
-                      <Trash2 size={13} />
-                    </button>
-                  </div>
-                </div>
-              )}
-
-              {/* Expanded sets */}
-              {isOpen && !isEditingThis && (
-                <div className="px-4 pb-4 border-t border-slate-700/50 pt-3 space-y-4">
-                  {!detail ? (
-                    <div className="h-10 bg-slate-700 rounded-xl animate-pulse" />
-                  ) : groups.length === 0 ? (
-                    <p className="text-slate-500 text-xs">Sin series registradas.</p>
-                  ) : groups.map(group => (
-                    <div key={group.exercise_id}>
-                      <div className="flex items-center gap-2 mb-2">
-                        {group.type === 'time'
-                          ? <Clock size={13} className="text-amber-400" />
-                          : <Dumbbell size={13} className="text-indigo-400" />}
-                        <span className="text-slate-300 text-xs font-semibold uppercase tracking-wide">{group.name}</span>
-                      </div>
-
-                      <div className="space-y-1.5">
-                        {group.sets.map((set, i) => (
-                          <div key={set.id}>
-                            {editingSet === set.id ? (
-                              <div className="flex items-center gap-2 bg-slate-700 rounded-xl px-3 py-2">
-                                {set.exercise_type !== 'time' ? (
-                                  <>
-                                    <input
-                                      type="number" inputMode="decimal"
-                                      value={editValues.weight}
-                                      onChange={e => setEditValues(p => ({ ...p, weight: e.target.value }))}
-                                      placeholder="kg"
-                                      className="w-14 bg-slate-600 text-white text-xs rounded-lg px-2 py-1.5 outline-none text-center"
-                                    />
-                                    <span className="text-slate-500 text-xs">×</span>
-                                    <input
-                                      type="number" inputMode="numeric"
-                                      value={editValues.reps}
-                                      onChange={e => setEditValues(p => ({ ...p, reps: e.target.value }))}
-                                      placeholder="reps"
-                                      className="w-12 bg-slate-600 text-white text-xs rounded-lg px-2 py-1.5 outline-none text-center"
-                                    />
-                                  </>
-                                ) : (
-                                  <input
-                                    type="number" inputMode="decimal"
-                                    value={editValues.duration}
-                                    onChange={e => setEditValues(p => ({ ...p, duration: e.target.value }))}
-                                    placeholder="min" step="0.5"
-                                    className="w-16 bg-slate-600 text-white text-xs rounded-lg px-2 py-1.5 outline-none text-center"
-                                  />
-                                )}
-                                <span className="text-slate-500 text-xs ml-1">@</span>
+                    return (
+                      <div
+                        key={session.id}
+                        className="bg-slate-800 rounded-2xl overflow-hidden row-in"
+                        style={{ animationDelay: `${Math.min(idx, 5) * 45}ms` }}
+                      >
+                        {/* Session header — edit mode */}
+                        {isEditingThis ? (
+                          <div className="p-4 space-y-3">
+                            <p className="text-slate-400 text-xs font-semibold uppercase tracking-wide">Editar sesión</p>
+                            <div className="space-y-2">
+                              <div>
+                                <label className="text-xs text-slate-400 block mb-1">Fecha</label>
                                 <input
-                                  type="time"
-                                  value={editValues.time}
-                                  onChange={e => setEditValues(p => ({ ...p, time: e.target.value }))}
-                                  className="w-20 bg-slate-600 text-white text-xs rounded-lg px-2 py-1.5 outline-none text-center"
+                                  type="date"
+                                  value={sessionEditValues.date}
+                                  onChange={e => setSessionEditValues(v => ({ ...v, date: e.target.value }))}
+                                  className="w-full bg-slate-700 text-white rounded-xl px-3 py-2 text-sm outline-none focus:ring-2 focus:ring-indigo-500"
                                 />
-                                <button onClick={() => saveEdit(set)} className="ml-auto p-1.5 bg-emerald-600 rounded-lg text-white">
-                                  <Check size={12} />
-                                </button>
-                                <button onClick={() => setEditingSet(null)} className="p-1.5 bg-slate-600 rounded-lg text-slate-300">
-                                  <X size={12} />
-                                </button>
                               </div>
+                              <div className="grid grid-cols-2 gap-2">
+                                <div>
+                                  <label className="text-xs text-slate-400 block mb-1">Inicio</label>
+                                  <input
+                                    type="time"
+                                    value={sessionEditValues.startTime}
+                                    onChange={e => setSessionEditValues(v => ({ ...v, startTime: e.target.value }))}
+                                    className="w-full bg-slate-700 text-white rounded-xl px-3 py-2 text-sm outline-none focus:ring-2 focus:ring-indigo-500"
+                                  />
+                                </div>
+                                {session.ended_at && (
+                                  <div>
+                                    <label className="text-xs text-slate-400 block mb-1">Fin</label>
+                                    <input
+                                      type="time"
+                                      value={sessionEditValues.endTime}
+                                      onChange={e => setSessionEditValues(v => ({ ...v, endTime: e.target.value }))}
+                                      className="w-full bg-slate-700 text-white rounded-xl px-3 py-2 text-sm outline-none focus:ring-2 focus:ring-indigo-500"
+                                    />
+                                  </div>
+                                )}
+                              </div>
+                            </div>
+                            <div className="flex gap-2">
+                              <button
+                                onClick={() => setEditingSession(null)}
+                                className="flex-1 py-2.5 bg-slate-700 hover:bg-slate-600 text-slate-300 rounded-xl text-sm font-medium transition-colors"
+                              >
+                                Cancelar
+                              </button>
+                              <button
+                                onClick={() => saveSessionEdit(session)}
+                                className="flex-1 py-2.5 bg-indigo-600 hover:bg-indigo-500 text-white rounded-xl text-sm font-semibold transition-colors"
+                              >
+                                Guardar
+                              </button>
+                            </div>
+                          </div>
+                        ) : (
+                          /* Session header — normal mode */
+                          <div className="flex items-center">
+                            <button
+                              onClick={() => toggleExpand(session.id)}
+                              className="flex-1 flex items-center justify-between px-4 py-3.5 text-left min-w-0"
+                            >
+                              <div className="min-w-0">
+                                <p className="text-white font-semibold text-sm capitalize">
+                                  {dayjs(toUTC(session.started_at)).format('ddd D MMM YYYY')}
+                                  {session.edited_at && <span className="text-slate-600 text-xs font-normal ml-2">editado</span>}
+                                </p>
+                                <p className="text-slate-500 text-xs mt-0.5">
+                                  {session.exercise_count} ejercicio{session.exercise_count !== 1 ? 's' : ''}
+                                  {' · '}{session.set_count} serie{session.set_count !== 1 ? 's' : ''}
+                                  {dur && ` · ${dur}`}
+                                  {!session.ended_at && <span className="text-amber-400 ml-1">• en curso</span>}
+                                </p>
+                              </div>
+                              {isOpen
+                                ? <ChevronUp size={16} className="text-slate-500 flex-shrink-0 ml-2" />
+                                : <ChevronDown size={16} className="text-slate-500 flex-shrink-0 ml-2" />}
+                            </button>
+
+                            {/* ⋯ Session menu */}
+                            <div
+                              className="relative flex-shrink-0 pr-2"
+                              onPointerDown={e => e.stopPropagation()}
+                            >
+                              <button
+                                onClick={e => { e.stopPropagation(); setOpenMenu(prev => prev === sessionMenuKey ? null : sessionMenuKey) }}
+                                className="p-2 rounded-xl text-slate-500 hover:text-white hover:bg-slate-700 transition-colors"
+                              >
+                                <MoreHorizontal size={16} />
+                              </button>
+                              {openMenu === sessionMenuKey && (
+                                <div className="absolute right-0 top-full mt-1 bg-slate-700 border border-slate-600 rounded-xl shadow-xl z-30 overflow-hidden min-w-[130px]">
+                                  <button
+                                    onPointerDown={e => e.stopPropagation()}
+                                    onClick={() => startSessionEdit(session)}
+                                    className="w-full flex items-center gap-2.5 px-4 py-2.5 text-sm text-slate-300 hover:bg-slate-600 hover:text-white transition-colors"
+                                  >
+                                    <Edit2 size={13} />
+                                    Editar
+                                  </button>
+                                  <button
+                                    onPointerDown={e => e.stopPropagation()}
+                                    onClick={() => {
+                                      setOpenMenu(null)
+                                      setConfirmModal({
+                                        title: `¿Eliminar sesión del ${dayjs(toUTC(session.started_at)).format('D MMM')}?`,
+                                        message: 'Se eliminarán todas las series de esta sesión.',
+                                        confirmLabel: 'Eliminar',
+                                        danger: true,
+                                        onConfirm: () => { setConfirmModal(null); deleteSession(session.id) },
+                                      })
+                                    }}
+                                    className="w-full flex items-center gap-2.5 px-4 py-2.5 text-sm text-red-400 hover:bg-red-500/10 transition-colors"
+                                  >
+                                    <Trash2 size={13} />
+                                    Eliminar
+                                  </button>
+                                </div>
+                              )}
+                            </div>
+                          </div>
+                        )}
+
+                        {/* Expanded sets */}
+                        {isOpen && !isEditingThis && (
+                          <div className="px-4 pb-4 border-t border-slate-700/50 pt-3 space-y-4">
+                            {!detail ? (
+                              <div className="h-10 bg-slate-700 rounded-xl animate-pulse" />
+                            ) : groups.length === 0 ? (
+                              <p className="text-slate-500 text-xs">Sin series registradas.</p>
                             ) : (
-                              <div className="flex items-center gap-2 group/set px-1 py-0.5 rounded-lg hover:bg-slate-700/50">
-                                <span className="text-slate-600 text-xs w-4 text-right flex-shrink-0">{i + 1}</span>
-                                <span className="text-slate-300 font-mono text-sm flex-1">{fmtSetLabel(set)}</span>
-                                <span className="text-slate-600 text-xs">{dayjs(toUTC(set.recorded_at)).format('HH:mm')}</span>
-                                {set.edited_at && <span className="text-slate-600 text-xs">editado</span>}
-                                <button
-                                  onClick={() => startEdit(set)}
-                                  className="p-1 text-slate-600 hover:text-indigo-400 transition-colors opacity-0 group-hover/set:opacity-100"
+                              /* Exercise group drag context */
+                              <DndContext
+                                sensors={sensors}
+                                collisionDetection={closestCenter}
+                                onDragEnd={handleGroupDragEnd(session.id)}
+                              >
+                                <SortableContext
+                                  items={groups.map(g => g.exercise_id)}
+                                  strategy={verticalListSortingStrategy}
                                 >
-                                  <Edit2 size={13} />
-                                </button>
-                                <button
-                                  onClick={() => setConfirmModal({
-                                    title: '¿Eliminar serie?',
-                                    danger: true,
-                                    confirmLabel: 'Eliminar',
-                                    onConfirm: () => { setConfirmModal(null); deleteSet(set) },
-                                  })}
-                                  className="p-1 text-slate-600 hover:text-red-400 transition-colors opacity-0 group-hover/set:opacity-100"
-                                >
-                                  <Trash2 size={13} />
-                                </button>
-                              </div>
+                                  <div className="space-y-4">
+                                    {groups.map(group => (
+                                      <SortableExerciseGroup key={group.exercise_id} id={group.exercise_id}>
+                                        {({ dragHandleProps }) => (
+                                          <div>
+                                            {/* Group header with drag handle */}
+                                            <div className="flex items-center gap-2 mb-2">
+                                              <button
+                                                {...dragHandleProps}
+                                                className="text-slate-700 hover:text-slate-500 transition-colors cursor-grab active:cursor-grabbing touch-none"
+                                                aria-label="Reordenar ejercicio"
+                                              >
+                                                <GripVertical size={13} />
+                                              </button>
+                                              {group.type === 'time'
+                                                ? <Clock size={13} className="text-amber-400" />
+                                                : <Dumbbell size={13} className="text-indigo-400" />}
+                                              <span className="text-slate-300 text-xs font-semibold uppercase tracking-wide flex-1">{group.name}</span>
+                                            </div>
+
+                                            {/* Set rows drag context */}
+                                            <DndContext
+                                              sensors={sensors}
+                                              collisionDetection={closestCenter}
+                                              onDragEnd={handleSetDragEnd(session.id, group.exercise_id)}
+                                            >
+                                              <SortableContext
+                                                items={group.sets.map(s => s.id)}
+                                                strategy={verticalListSortingStrategy}
+                                              >
+                                                <div className="space-y-1.5">
+                                                  {group.sets.map((set, i) => (
+                                                    <SortableSetRow key={set.id} id={set.id}>
+                                                      {({ dragHandleProps: setDragProps }) => (
+                                                        <div>
+                                                          {editingSet === set.id ? (
+                                                            <div className="flex items-center gap-2 bg-slate-700 rounded-xl px-3 py-2">
+                                                              {set.exercise_type !== 'time' ? (
+                                                                <>
+                                                                  <input
+                                                                    type="number" inputMode="decimal"
+                                                                    value={editValues.weight}
+                                                                    onChange={e => setEditValues(p => ({ ...p, weight: e.target.value }))}
+                                                                    placeholder="kg"
+                                                                    className="w-14 bg-slate-600 text-white text-xs rounded-lg px-2 py-1.5 outline-none text-center"
+                                                                  />
+                                                                  <span className="text-slate-500 text-xs">×</span>
+                                                                  <input
+                                                                    type="number" inputMode="numeric"
+                                                                    value={editValues.reps}
+                                                                    onChange={e => setEditValues(p => ({ ...p, reps: e.target.value }))}
+                                                                    placeholder="reps"
+                                                                    className="w-12 bg-slate-600 text-white text-xs rounded-lg px-2 py-1.5 outline-none text-center"
+                                                                  />
+                                                                </>
+                                                              ) : (
+                                                                <input
+                                                                  type="number" inputMode="decimal"
+                                                                  value={editValues.duration}
+                                                                  onChange={e => setEditValues(p => ({ ...p, duration: e.target.value }))}
+                                                                  placeholder="min" step="0.5"
+                                                                  className="w-16 bg-slate-600 text-white text-xs rounded-lg px-2 py-1.5 outline-none text-center"
+                                                                />
+                                                              )}
+                                                              <span className="text-slate-500 text-xs ml-1">@</span>
+                                                              <input
+                                                                type="time"
+                                                                value={editValues.time}
+                                                                onChange={e => setEditValues(p => ({ ...p, time: e.target.value }))}
+                                                                className="w-20 bg-slate-600 text-white text-xs rounded-lg px-2 py-1.5 outline-none text-center"
+                                                              />
+                                                              <button onClick={() => saveEdit(set)} className="ml-auto p-1.5 bg-emerald-600 rounded-lg text-white">
+                                                                <Check size={12} />
+                                                              </button>
+                                                              <button onClick={() => setEditingSet(null)} className="p-1.5 bg-slate-600 rounded-lg text-slate-300">
+                                                                <X size={12} />
+                                                              </button>
+                                                            </div>
+                                                          ) : (
+                                                            <div className="flex items-center gap-1.5 px-1 py-0.5 rounded-lg">
+                                                              {/* Set drag handle */}
+                                                              <button
+                                                                {...setDragProps}
+                                                                className="text-slate-700 hover:text-slate-500 transition-colors cursor-grab active:cursor-grabbing touch-none flex-shrink-0"
+                                                                aria-label="Reordenar serie"
+                                                              >
+                                                                <GripVertical size={12} />
+                                                              </button>
+                                                              <span className="text-slate-600 text-xs w-4 text-right flex-shrink-0">{i + 1}</span>
+                                                              <span className="text-slate-300 font-mono text-sm flex-1">{fmtSetLabel(set)}</span>
+                                                              <span className="text-slate-600 text-xs">{dayjs(toUTC(set.recorded_at)).format('HH:mm')}</span>
+                                                              {set.edited_at && <span className="text-slate-600 text-xs">editado</span>}
+
+                                                              {/* ⋯ Set menu */}
+                                                              <div
+                                                                className="relative flex-shrink-0"
+                                                                onPointerDown={e => e.stopPropagation()}
+                                                              >
+                                                                <button
+                                                                  onClick={e => { e.stopPropagation(); setOpenMenu(prev => prev === `set_${set.id}` ? null : `set_${set.id}`) }}
+                                                                  className="p-1 rounded-lg text-slate-600 hover:text-white hover:bg-slate-700 transition-colors"
+                                                                >
+                                                                  <MoreHorizontal size={14} />
+                                                                </button>
+                                                                {openMenu === `set_${set.id}` && (
+                                                                  <div className="absolute right-0 top-full mt-1 bg-slate-700 border border-slate-600 rounded-xl shadow-xl z-30 overflow-hidden min-w-[110px]">
+                                                                    <button
+                                                                      onPointerDown={e => e.stopPropagation()}
+                                                                      onClick={() => startEdit(set)}
+                                                                      className="w-full flex items-center gap-2.5 px-3 py-2.5 text-xs text-slate-300 hover:bg-slate-600 hover:text-white transition-colors"
+                                                                    >
+                                                                      <Edit2 size={12} />
+                                                                      Editar
+                                                                    </button>
+                                                                    <button
+                                                                      onPointerDown={e => e.stopPropagation()}
+                                                                      onClick={() => {
+                                                                        setOpenMenu(null)
+                                                                        setConfirmModal({
+                                                                          title: '¿Eliminar serie?',
+                                                                          danger: true,
+                                                                          confirmLabel: 'Eliminar',
+                                                                          onConfirm: () => { setConfirmModal(null); deleteSet(set) },
+                                                                        })
+                                                                      }}
+                                                                      className="w-full flex items-center gap-2.5 px-3 py-2.5 text-xs text-red-400 hover:bg-red-500/10 transition-colors"
+                                                                    >
+                                                                      <Trash2 size={12} />
+                                                                      Eliminar
+                                                                    </button>
+                                                                  </div>
+                                                                )}
+                                                              </div>
+                                                            </div>
+                                                          )}
+                                                        </div>
+                                                      )}
+                                                    </SortableSetRow>
+                                                  ))}
+                                                </div>
+                                              </SortableContext>
+                                            </DndContext>
+                                          </div>
+                                        )}
+                                      </SortableExerciseGroup>
+                                    ))}
+                                  </div>
+                                </SortableContext>
+                              </DndContext>
                             )}
                           </div>
-                        ))}
+                        )}
                       </div>
-                    </div>
-                  ))}
-                </div>
-              )}
-            </div>
-          )
+                    )
                   })}
                 </div>
               )}

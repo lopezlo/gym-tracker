@@ -53,7 +53,7 @@ export default function Dashboard() {
 
   const fmtTime = (mins) => {
     if (mins < 60) return `${mins}m`
-    return `${Math.floor(mins / 60)}h ${mins % 60 > 0 ? `${mins % 60}m` : ''}`
+    return `${Math.round(mins / 60)}h`
   }
 
   const COLORS = ['bg-indigo-500', 'bg-violet-500', 'bg-pink-500', 'bg-emerald-500', 'bg-amber-500', 'bg-sky-500', 'bg-rose-500', 'bg-teal-500']

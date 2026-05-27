@@ -160,4 +160,29 @@ router.delete('/:id', async (req, res) => {
   } catch (e) { res.status(500).json({ error: e.message }) }
 })
 
+// Reorder sets within a session — accepts full ordered array of set IDs
+router.put('/:id/reorder', async (req, res) => {
+  const { setIds } = req.body
+  if (!Array.isArray(setIds) || setIds.length === 0) {
+    return res.status(400).json({ error: 'setIds array required' })
+  }
+  const client = await pool.connect()
+  try {
+    await client.query('BEGIN')
+    for (let i = 0; i < setIds.length; i++) {
+      await client.query(
+        'UPDATE sets SET set_order = $1 WHERE id = $2 AND session_id = $3',
+        [i + 1, setIds[i], req.params.id]
+      )
+    }
+    await client.query('COMMIT')
+    res.json({ ok: true })
+  } catch (e) {
+    await client.query('ROLLBACK')
+    res.status(500).json({ error: e.message })
+  } finally {
+    client.release()
+  }
+})
+
 module.exports = router

@@ -1,7 +1,7 @@
 import { useState, useMemo, useEffect, useRef } from 'react'
 import {
   LineChart, Line, XAxis, YAxis, CartesianGrid, Tooltip,
-  ResponsiveContainer, Dot, ReferenceDot
+  ResponsiveContainer, ReferenceDot
 } from 'recharts'
 import dayjs from 'dayjs'
 import { ChevronDown, X } from 'lucide-react'
@@ -307,7 +307,7 @@ export default function ProgressChart({ exerciseProgress, defaultExerciseId, use
                   unit={ex.type === 'time' ? ' min' : 'kg'}
                   stroke={color}
                   strokeWidth={2}
-                  dot={<Dot r={3} fill={color} />}
+                  dot={false}
                   activeDot={{ r: 5 }}
                   connectNulls
                 />

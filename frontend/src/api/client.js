@@ -41,6 +41,7 @@ export const api = {
 
   deleteSession: (id) => req('DELETE', `/sessions/${id}`),
   updateSession: (id, data) => req('PATCH', `/sessions/${id}`, data),
+  reorderSets: (sessionId, setIds) => req('PUT', `/sessions/${sessionId}/reorder`, { setIds }),
 
   previewCSV: (file) => {
     const fd = new FormData()
