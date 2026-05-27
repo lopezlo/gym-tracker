@@ -2,6 +2,8 @@ import { useState, useEffect, useRef } from 'react'
 import { Search, Plus, X, Clock, Dumbbell } from 'lucide-react'
 import { api } from '../api/client'
 
+const TOP_MARGIN = 60 // px gap between modal top and screen top
+
 export default function ExerciseSelector({ userId, onSelect, onClose }) {
   const [exercises, setExercises] = useState([])
   const [query, setQuery] = useState('')
@@ -11,6 +13,36 @@ export default function ExerciseSelector({ userId, onSelect, onClose }) {
   const [loading, setLoading] = useState(true)
   const inputRef = useRef(null)
 
+  // ── Height tracking ───────────────────────────────────────────────────────
+  // Use the MINIMUM of window.innerHeight and visualViewport.height so we
+  // handle both Chrome behaviors (layout-viewport-resizes vs doesn't).
+  // Three event sources as fallbacks: vv.resize, window.resize, focusout.
+  const getAvailable = () =>
+    Math.min(
+      window.innerHeight,
+      window.visualViewport?.height ?? window.innerHeight
+    )
+
+  const [available, setAvailable] = useState(getAvailable)
+
+  useEffect(() => {
+    const update = () => setAvailable(getAvailable())
+    window.visualViewport?.addEventListener('resize', update)
+    window.addEventListener('resize', update)
+    // Fallback: keyboard closing means an input lost focus
+    const onFocusOut = () => setTimeout(update, 300)
+    document.addEventListener('focusout', onFocusOut)
+    return () => {
+      window.visualViewport?.removeEventListener('resize', update)
+      window.removeEventListener('resize', update)
+      document.removeEventListener('focusout', onFocusOut)
+    }
+  }, [])
+
+  const modalHeight = available - TOP_MARGIN
+
+  // ── Data ──────────────────────────────────────────────────────────────────
+
   useEffect(() => {
     api.getExercises(userId).then(setExercises).finally(() => setLoading(false))
   }, [])
@@ -18,7 +50,6 @@ export default function ExerciseSelector({ userId, onSelect, onClose }) {
   const filtered = exercises.filter(e =>
     e.name.toLowerCase().includes(query.toLowerCase())
   )
-
   const exactMatch = exercises.find(e => e.name.toLowerCase() === query.toLowerCase())
 
   const handleCreate = async () => {
@@ -40,11 +71,15 @@ export default function ExerciseSelector({ userId, onSelect, onClose }) {
   return (
     <div className="fixed inset-0 z-50 flex items-end">
       <div className="absolute inset-0 bg-black/60" onClick={onClose} />
+
       <div
-        className="relative w-full bg-slate-800 rounded-t-3xl flex flex-col"
-        style={{ maxHeight: '92dvh' }}
+        className="relative w-full bg-slate-800 rounded-t-3xl flex flex-col overflow-hidden"
+        style={{
+          height: modalHeight,
+          transition: 'height 180ms ease-out',
+        }}
       >
-        {/* Handle + header — fixed at top */}
+        {/* Handle + header */}
         <div className="flex-shrink-0">
           <div className="flex justify-center pt-3 pb-1">
             <div className="w-10 h-1 bg-slate-600 rounded-full" />
@@ -59,7 +94,7 @@ export default function ExerciseSelector({ userId, onSelect, onClose }) {
           </div>
         </div>
 
-        {/* List — flex-1 + min-h-0 so it shrinks and scrolls properly */}
+        {/* List — takes all remaining space, scrolls */}
         <div className="flex-1 min-h-0 overflow-y-auto px-4 pt-1 pb-2 space-y-1">
           {loading ? (
             <div className="space-y-2 pt-2">
@@ -128,16 +163,10 @@ export default function ExerciseSelector({ userId, onSelect, onClose }) {
                     </div>
                   </div>
                   <div className="grid grid-cols-2 gap-2">
-                    <button
-                      onClick={() => setCreating(false)}
-                      className="py-2.5 bg-slate-600 text-slate-300 rounded-xl text-sm transition-colors"
-                    >
+                    <button onClick={() => setCreating(false)} className="py-2.5 bg-slate-600 text-slate-300 rounded-xl text-sm">
                       Cancelar
                     </button>
-                    <button
-                      onClick={handleCreate}
-                      className="py-2.5 bg-indigo-600 hover:bg-indigo-500 text-white rounded-xl text-sm font-semibold transition-colors"
-                    >
+                    <button onClick={handleCreate} className="py-2.5 bg-indigo-600 hover:bg-indigo-500 text-white rounded-xl text-sm font-semibold">
                       Crear
                     </button>
                   </div>
@@ -153,7 +182,7 @@ export default function ExerciseSelector({ userId, onSelect, onClose }) {
           )}
         </div>
 
-        {/* Search — pinned at bottom, always above the keyboard */}
+        {/* Search — pinned at bottom, always above keyboard */}
         <div className="flex-shrink-0 px-4 pt-2 pb-5 border-t border-slate-700/50">
           <div className="relative">
             <Search size={16} className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-500" />

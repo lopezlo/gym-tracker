@@ -2,6 +2,13 @@ import { X } from 'lucide-react'
 
 const CHANGELOG = [
   {
+    version: '1.5.6',
+    date: '27 may 2026',
+    changes: [
+      'Selector de ejercicio: margen superior fijo (60 px) y altura dinámica al abrir el teclado, sin desbordamiento por arriba.',
+    ],
+  },
+  {
     version: '1.5.5',
     date: '27 may 2026',
     changes: [
