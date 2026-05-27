@@ -2,6 +2,13 @@ import { X } from 'lucide-react'
 
 const CHANGELOG = [
   {
+    version: '1.5.5',
+    date: '27 may 2026',
+    changes: [
+      'Selector de ejercicio: buscador movido al pie del modal. La lista queda arriba del teclado y es scrollable con espacio completo.',
+    ],
+  },
+  {
     version: '1.5.4',
     date: '27 may 2026',
     changes: [

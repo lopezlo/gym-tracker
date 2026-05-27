@@ -40,47 +40,32 @@ export default function ExerciseSelector({ userId, onSelect, onClose }) {
   return (
     <div className="fixed inset-0 z-50 flex items-end">
       <div className="absolute inset-0 bg-black/60" onClick={onClose} />
-      {/*
-        max-h uses dvh (dynamic viewport height) — a CSS unit that Chrome/Android
-        updates automatically when the keyboard opens, no JavaScript needed.
-        The fixed+inset-0 container already repositions above the keyboard on
-        modern Chrome (which resizes the layout viewport on keyboard open).
-      */}
       <div
         className="relative w-full bg-slate-800 rounded-t-3xl flex flex-col"
         style={{ maxHeight: '92dvh' }}
       >
-        {/* Handle */}
-        <div className="flex justify-center pt-3 pb-1">
-          <div className="w-10 h-1 bg-slate-600 rounded-full" />
-        </div>
-
-        <div className="px-4 pb-2">
-          <div className="flex items-center justify-between mb-3">
-            <h2 className="text-white font-semibold text-base leading-tight">Selecciona el ejercicio realizado</h2>
+        {/* Handle + header — fixed at top */}
+        <div className="flex-shrink-0">
+          <div className="flex justify-center pt-3 pb-1">
+            <div className="w-10 h-1 bg-slate-600 rounded-full" />
+          </div>
+          <div className="px-4 pt-1 pb-2 flex items-center justify-between">
+            <h2 className="text-white font-semibold text-base leading-tight">
+              Selecciona el ejercicio realizado
+            </h2>
             <button onClick={onClose} className="p-2 text-slate-500 hover:text-white">
               <X size={20} />
             </button>
           </div>
-
-          {/* Search */}
-          <div className="relative">
-            <Search size={16} className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-500" />
-            <input
-              ref={inputRef}
-              value={query}
-              onChange={e => { setQuery(e.target.value); setCreating(false) }}
-              onKeyDown={handleKeyDown}
-              placeholder="Buscar o crear ejercicio..."
-              className="w-full bg-slate-700 text-white rounded-xl pl-9 pr-4 py-3 text-sm outline-none focus:ring-2 focus:ring-indigo-500 placeholder-slate-500"
-            />
-          </div>
         </div>
 
-        <div className="flex-1 overflow-y-auto px-4 pb-6 space-y-1">
+        {/* List — flex-1 + min-h-0 so it shrinks and scrolls properly */}
+        <div className="flex-1 min-h-0 overflow-y-auto px-4 pt-1 pb-2 space-y-1">
           {loading ? (
             <div className="space-y-2 pt-2">
-              {[1,2,3,4].map(i => <div key={i} className="h-12 bg-slate-700 rounded-xl animate-pulse" />)}
+              {[1, 2, 3, 4].map(i => (
+                <div key={i} className="h-12 bg-slate-700 rounded-xl animate-pulse" />
+              ))}
             </div>
           ) : (
             <>
@@ -92,18 +77,18 @@ export default function ExerciseSelector({ userId, onSelect, onClose }) {
                 >
                   {ex.type === 'time'
                     ? <Clock size={18} className="text-amber-400 flex-shrink-0" />
-                    : <Dumbbell size={18} className="text-indigo-400 flex-shrink-0" />
-                  }
+                    : <Dumbbell size={18} className="text-indigo-400 flex-shrink-0" />}
                   <span className="text-white font-medium">{ex.name}</span>
                   <span className={`ml-auto text-xs px-2 py-0.5 rounded-full ${
-                    ex.type === 'time' ? 'bg-amber-500/20 text-amber-400' : 'bg-indigo-500/20 text-indigo-400'
+                    ex.type === 'time'
+                      ? 'bg-amber-500/20 text-amber-400'
+                      : 'bg-indigo-500/20 text-indigo-400'
                   }`}>
                     {ex.type === 'time' ? 'tiempo' : 'reps'}
                   </span>
                 </button>
               ))}
 
-              {/* Create option */}
               {query && !exactMatch && !creating && (
                 <button
                   onClick={() => { setNewName(query); setCreating(true) }}
@@ -116,14 +101,16 @@ export default function ExerciseSelector({ userId, onSelect, onClose }) {
 
               {creating && (
                 <div className="bg-slate-700 rounded-xl p-4 space-y-3">
-                  <p className="text-white font-semibold text-sm">Nuevo ejercicio: <span className="text-indigo-400">{newName}</span></p>
+                  <p className="text-white font-semibold text-sm">
+                    Nuevo ejercicio: <span className="text-indigo-400">{newName}</span>
+                  </p>
                   <div>
                     <p className="text-slate-400 text-xs mb-2">Tipo de seguimiento</p>
                     <div className="grid grid-cols-2 gap-2">
                       <button
                         onClick={() => setNewType('reps')}
                         className={`py-2.5 rounded-xl text-sm font-medium transition-colors ${
-                          newType === 'reps' ? 'bg-indigo-600 text-white' : 'bg-slate-600 text-slate-300 hover:bg-slate-500'
+                          newType === 'reps' ? 'bg-indigo-600 text-white' : 'bg-slate-600 text-slate-300'
                         }`}
                       >
                         <Dumbbell size={14} className="inline mr-1.5" />
@@ -132,7 +119,7 @@ export default function ExerciseSelector({ userId, onSelect, onClose }) {
                       <button
                         onClick={() => setNewType('time')}
                         className={`py-2.5 rounded-xl text-sm font-medium transition-colors ${
-                          newType === 'time' ? 'bg-amber-600 text-white' : 'bg-slate-600 text-slate-300 hover:bg-slate-500'
+                          newType === 'time' ? 'bg-amber-600 text-white' : 'bg-slate-600 text-slate-300'
                         }`}
                       >
                         <Clock size={14} className="inline mr-1.5" />
@@ -141,10 +128,16 @@ export default function ExerciseSelector({ userId, onSelect, onClose }) {
                     </div>
                   </div>
                   <div className="grid grid-cols-2 gap-2">
-                    <button onClick={() => setCreating(false)} className="py-2.5 bg-slate-600 hover:bg-slate-500 text-slate-300 rounded-xl text-sm transition-colors">
+                    <button
+                      onClick={() => setCreating(false)}
+                      className="py-2.5 bg-slate-600 text-slate-300 rounded-xl text-sm transition-colors"
+                    >
                       Cancelar
                     </button>
-                    <button onClick={handleCreate} className="py-2.5 bg-indigo-600 hover:bg-indigo-500 text-white rounded-xl text-sm font-semibold transition-colors">
+                    <button
+                      onClick={handleCreate}
+                      className="py-2.5 bg-indigo-600 hover:bg-indigo-500 text-white rounded-xl text-sm font-semibold transition-colors"
+                    >
                       Crear
                     </button>
                   </div>
@@ -158,6 +151,21 @@ export default function ExerciseSelector({ userId, onSelect, onClose }) {
               )}
             </>
           )}
+        </div>
+
+        {/* Search — pinned at bottom, always above the keyboard */}
+        <div className="flex-shrink-0 px-4 pt-2 pb-5 border-t border-slate-700/50">
+          <div className="relative">
+            <Search size={16} className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-500" />
+            <input
+              ref={inputRef}
+              value={query}
+              onChange={e => { setQuery(e.target.value); setCreating(false) }}
+              onKeyDown={handleKeyDown}
+              placeholder="Buscar o crear ejercicio..."
+              className="w-full bg-slate-700 text-white rounded-xl pl-9 pr-4 py-3 text-sm outline-none focus:ring-2 focus:ring-indigo-500 placeholder-slate-500"
+            />
+          </div>
         </div>
       </div>
     </div>
