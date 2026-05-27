@@ -15,15 +15,16 @@ export default function ExerciseSelector({ userId, onSelect, onClose }) {
   // Anchor the backdrop/sheet container to the *visual* viewport so it always
   // sits exactly in the visible area regardless of whether the browser resizes
   // the layout viewport when the keyboard opens (new Chrome) or not (old).
-  const [vp, setVp] = useState(() => {
-    const vv = window.visualViewport
-    return { top: vv?.offsetTop ?? 0, height: vv?.height ?? window.innerHeight }
-  })
+  const [vpHeight, setVpHeight] = useState(
+    () => window.visualViewport?.height ?? window.innerHeight
+  )
 
   useEffect(() => {
     const vv = window.visualViewport
     if (!vv) return
-    const update = () => setVp({ top: vv.offsetTop, height: vv.height })
+    // Only track height — ignore offsetTop, which Chrome changes during
+    // scroll/keyboard transitions and causes the floating-modal bug.
+    const update = () => setVpHeight(vv.height)
     vv.addEventListener('resize', update)
     vv.addEventListener('scroll', update)
     return () => {
@@ -60,13 +61,13 @@ export default function ExerciseSelector({ userId, onSelect, onClose }) {
 
   return (
     <div
-      className="fixed left-0 right-0 z-50 flex flex-col justify-end"
-      style={{ top: vp.top, height: vp.height }}
+      className="fixed top-0 left-0 right-0 z-50 flex flex-col justify-end"
+      style={{ height: vpHeight }}
     >
       <div className="absolute inset-0 bg-black/60" onClick={onClose} />
       <div
         className="relative w-full bg-slate-800 rounded-t-3xl flex flex-col"
-        style={{ maxHeight: `${vp.height * 0.92}px` }}
+        style={{ maxHeight: `${vpHeight * 0.92}px` }}
       >
         {/* Handle */}
         <div className="flex justify-center pt-3 pb-1">
