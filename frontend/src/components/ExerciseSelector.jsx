@@ -11,6 +11,27 @@ export default function ExerciseSelector({ userId, onSelect, onClose }) {
   const [loading, setLoading] = useState(true)
   const inputRef = useRef(null)
 
+  // ── Keyboard-aware positioning via visualViewport ─────────────────────────
+  const [kbOffset, setKbOffset] = useState(0)
+  const [maxH, setMaxH] = useState(window.innerHeight * 0.82)
+
+  useEffect(() => {
+    const vv = window.visualViewport
+    if (!vv) return
+    const update = () => {
+      const offset = Math.max(0, window.innerHeight - vv.offsetTop - vv.height)
+      setKbOffset(offset)
+      setMaxH(Math.min(vv.height * 0.92, window.innerHeight * 0.82))
+    }
+    update()
+    vv.addEventListener('resize', update)
+    vv.addEventListener('scroll', update)
+    return () => {
+      vv.removeEventListener('resize', update)
+      vv.removeEventListener('scroll', update)
+    }
+  }, [])
+
   useEffect(() => {
     api.getExercises(userId).then(setExercises).finally(() => setLoading(false))
   }, [])
@@ -40,7 +61,14 @@ export default function ExerciseSelector({ userId, onSelect, onClose }) {
   return (
     <div className="fixed inset-0 z-50 flex items-end">
       <div className="absolute inset-0 bg-black/60" onClick={onClose} />
-      <div className="relative w-full bg-slate-800 rounded-t-3xl max-h-[80vh] flex flex-col">
+      <div
+        className="relative w-full bg-slate-800 rounded-t-3xl flex flex-col"
+        style={{
+          maxHeight: `${maxH}px`,
+          transform: `translateY(-${kbOffset}px)`,
+          transition: 'transform 200ms ease-out, max-height 200ms ease-out',
+        }}
+      >
         {/* Handle */}
         <div className="flex justify-center pt-3 pb-1">
           <div className="w-10 h-1 bg-slate-600 rounded-full" />
