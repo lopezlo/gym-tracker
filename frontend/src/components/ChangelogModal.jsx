@@ -2,143 +2,139 @@ import { X } from 'lucide-react'
 
 const CHANGELOG = [
   {
+    version: '1.6.0',
+    date: '28 may 2026',
+    changes: [
+      'Nuevo: Header del usuario compartido y estático entre Dashboard y Progreso',
+      'Fixed: Indicador de tab activo mal posicionado tras el swipe',
+    ],
+  },
+  {
     version: '1.5.9',
     date: '28 may 2026',
     changes: [
-      'Navegación entre Dashboard y Progreso: deslizamiento horizontal fluido en tiempo real. Ambos paneles siempre montados, la píldora del nav sigue el dedo.',
+      'Nuevo: Navegación swipe horizontal fluida entre tabs (estilo Instagram)',
     ],
   },
   {
     version: '1.5.8',
     date: '27 may 2026',
     changes: [
-      'Selector de ejercicio: margen superior siempre visible al abrir sin teclado. Usa CSS calc(100% - 60px) para evitar desbordamiento independientemente del valor JS del viewport.',
+      'Fixed: Margen superior del selector de ejercicio no se mostraba',
     ],
   },
   {
     version: '1.5.7',
     date: '27 may 2026',
     changes: [
-      'Selector de ejercicio: margen de 60 px sin teclado y 30 px con teclado abierto. Corregido el cálculo de altura para que el margen siempre sea visible.',
+      'Mejora: Margen del selector de ejercicio reducido cuando el teclado está abierto',
     ],
   },
   {
     version: '1.5.6',
     date: '27 may 2026',
     changes: [
-      'Selector de ejercicio: margen superior fijo (60 px) y altura dinámica al abrir el teclado, sin desbordamiento por arriba.',
+      'Mejora: Selector de ejercicio se redimensiona al abrir el teclado',
     ],
   },
   {
     version: '1.5.5',
     date: '27 may 2026',
     changes: [
-      'Selector de ejercicio: buscador movido al pie del modal. La lista queda arriba del teclado y es scrollable con espacio completo.',
+      'Mejora: Buscador del selector de ejercicio fijo al pie del modal',
     ],
   },
   {
     version: '1.5.4',
     date: '27 may 2026',
     changes: [
-      'Selector de ejercicio: eliminado el tracking JS del teclado (causaba modal flotante). Ahora usa CSS dvh nativo, sin bugs.',
+      'Fixed: Modal del selector flotando al cerrar el teclado',
     ],
   },
   {
     version: '1.5.3',
     date: '27 may 2026',
     changes: [
-      'Corrección: modal de ejercicios quedaba flotante al cerrar el teclado en Android',
+      'Fixed: Modal del selector descolocado en Android al cerrar el teclado',
     ],
   },
   {
     version: '1.5.2',
     date: '27 may 2026',
     changes: [
-      'Corrección: hueco negro entre el selector de ejercicio y el teclado (doble offset)',
+      'Fixed: Hueco negro entre el selector de ejercicio y el teclado',
     ],
   },
   {
     version: '1.5.1',
     date: '27 may 2026',
     changes: [
-      'Selector de ejercicio: se desplaza encima del teclado al escribir (visualViewport)',
+      'Mejora: El selector de ejercicio sube sobre el teclado al escribir',
     ],
   },
   {
     version: '1.5.0',
     date: '27 may 2026',
     changes: [
-      'Botón ⋯ de más opciones para editar/eliminar en el historial (compatible móvil)',
-      'Arrastrar para reordenar ejercicios y series dentro de una sesión',
-      'Selector de ejercicio: ordenado por los más usados',
-      'Selector de ejercicio: sin apertura automática de teclado',
-      'Selector de ejercicio: título descriptivo',
-      'Gráfico de progreso: sin puntos en las líneas',
-      'Dashboard: tiempo total redondeado en horas',
-      'Corrección del selector de duración desbordado en móvil',
-      'Este changelog',
+      'Nuevo: Menú ⋯ en el histórico (editar / eliminar en móvil)',
+      'Nuevo: Reordenar ejercicios y series arrastrando',
+      'Nuevo: Changelog de versiones',
+      'Mejora: Ejercicios ordenados por uso en el selector',
     ],
   },
   {
     version: '1.4.3',
     date: '27 may 2026',
     changes: [
-      'Gráfico de progreso vacío por defecto con mensaje orientativo',
-      'Vibración táctil reducida a 15 ms',
+      'Mejora: Gráfico vacío por defecto con mensaje orientativo',
+      'Mejora: Vibración táctil reducida a 15 ms',
     ],
   },
   {
     version: '1.4.2',
     date: '27 may 2026',
     changes: [
-      'Resumen de récords por ejercicio seleccionado debajo del gráfico',
-      'Navegación por deslizamiento horizontal entre Dashboard y Progreso',
+      'Nuevo: Resumen de récords por ejercicio bajo el gráfico',
+      'Nuevo: Swipe horizontal entre Dashboard y Progreso',
     ],
   },
   {
     version: '1.4.1',
     date: '26 may 2026',
     changes: [
-      'Filtro de rango temporal en el gráfico: 1 mes / 1 año / Todo',
-      'Escala Y automática en el gráfico',
-      'Marcadores de récord personal en el gráfico',
-      'Persistencia de la selección de ejercicios en el gráfico',
+      'Nuevo: Filtro temporal en el gráfico (1 mes / 1 año / todo)',
+      'Mejora: Escala automática y marcadores de récord en el gráfico',
     ],
   },
   {
     version: '1.4.0',
     date: '26 may 2026',
     changes: [
-      'Gráfico de progreso con selección múltiple de ejercicios',
-      'Etiquetas de color por ejercicio',
+      'Nuevo: Gráfico de progreso con selección múltiple de ejercicios',
     ],
   },
   {
     version: '1.3.0',
     date: '26 may 2026',
     changes: [
-      'Historial agrupado por año con colapso/expansión',
-      'Calendario de actividad anual con navegación por año',
-      'Rendimiento: caché en memoria, pantalla sin saltos',
-      'Microinteracciones: esqueletos, animaciones de entrada, píldora de navegación',
-      'Vibración háptica en taps (Android)',
+      'Nuevo: Historial agrupado por año con colapso/expansión',
+      'Nuevo: Calendario de actividad anual',
+      'Mejora: Caché en memoria, animaciones de entrada, vibración háptica',
     ],
   },
   {
     version: '1.2.0',
     date: '26 may 2026',
     changes: [
-      'Importación de historial desde CSV con barra de progreso real',
-      'El botón central navega a la sesión activa si la hay',
-      'Botón "Finalizar sesión" en rojo',
+      'Nuevo: Importación de historial desde CSV',
+      'Mejora: Botón central navega a la sesión activa si existe',
     ],
   },
   {
     version: '1.1.0',
     date: '26 may 2026',
     changes: [
-      'Perfiles de usuario con foto de avatar',
-      'Número de versión y fecha de build en el pie',
+      'Nuevo: Perfiles de usuario con foto de avatar',
     ],
   },
   {
@@ -146,9 +142,6 @@ const CHANGELOG = [
     date: '—',
     changes: [
       'Lanzamiento inicial',
-      'Registro de sesiones con ejercicios de fuerza y tiempo',
-      'Dashboard con estadísticas y calendario de actividad',
-      'Historial de sesiones con edición de series',
     ],
   },
 ]

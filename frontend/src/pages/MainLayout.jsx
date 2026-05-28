@@ -1,18 +1,20 @@
-import { useState, useEffect, useRef } from 'react'
+import { useState, useEffect, useLayoutEffect, useRef } from 'react'
 import { Outlet, NavLink, useNavigate, useLocation } from 'react-router-dom'
-import { LayoutDashboard, BarChart2, Activity } from 'lucide-react'
+import { LayoutDashboard, BarChart2, Activity, LogOut } from 'lucide-react'
 import { useApp } from '../context/AppContext'
 import { api } from '../api/client'
 import Dashboard from './Dashboard'
 import History from './History'
 
+const COLORS = ['bg-indigo-500', 'bg-violet-500', 'bg-pink-500', 'bg-emerald-500', 'bg-amber-500', 'bg-sky-500', 'bg-rose-500', 'bg-teal-500']
+const colorFor  = (id)   => COLORS[id % COLORS.length]
+const initials  = (name) => name.split(' ').map(w => w[0]).join('').toUpperCase().slice(0, 2)
+
 export default function MainLayout() {
-  const { user, activeSessionId, setActiveSession } = useApp()
+  const { user, logout, activeSessionId, setActiveSession } = useApp()
   const navigate = useNavigate()
   const location = useLocation()
 
-  // Tab routes use the two-panel swipe container.
-  // Other routes (session, import) use the normal <Outlet />.
   const isTabRoute = location.pathname === '/dashboard' || location.pathname === '/history'
   const tabIndex   = location.pathname === '/history' ? 1 : 0
   const tabIndexRef = useRef(tabIndex)
@@ -24,34 +26,33 @@ export default function MainLayout() {
   const [endSessionInfo, setEndSessionInfo] = useState(null)
 
   // ── Swipe refs ─────────────────────────────────────────────────────────────
-  const wrapperRef   = useRef(null)   // receives touch events
-  const containerRef = useRef(null)   // the 200%-wide sliding div
-  const pillRef      = useRef(null)   // nav pill indicator
+  const navRef       = useRef(null)  // nav element — used for accurate width in setPillX
+  const wrapperRef   = useRef(null)
+  const containerRef = useRef(null)
+  const pillRef      = useRef(null)
 
   const touchStartX   = useRef(0)
   const touchStartY   = useRef(0)
   const touchStartMs  = useRef(0)
-  const dirLocked     = useRef(null)  // null | 'h' | 'v'
+  const dirLocked     = useRef(null)
   const swipeActive   = useRef(false)
 
-  // Keep tabIndexRef in sync so closures inside useEffect always read current
   useEffect(() => { tabIndexRef.current = tabIndex }, [tabIndex])
 
-  // Animate container + pill to the correct tab position
+  // Snap container to tab position
   const snapTo = (idx, animate) => {
-    if (containerRef.current) {
-      containerRef.current.style.transition = animate
-        ? 'transform 280ms cubic-bezier(0.4,0,0.2,1)'
-        : 'none'
-      containerRef.current.style.transform = `translateX(${-idx * 50}%)`
-    }
+    if (!containerRef.current) return
+    containerRef.current.style.transition = animate
+      ? 'transform 280ms cubic-bezier(0.4,0,0.2,1)'
+      : 'none'
+    containerRef.current.style.transform = `translateX(${-idx * 50}%)`
   }
 
-  // Direct pill position update (called both during drag and on snap)
+  // Move pill to tab position — uses navRef for accurate width
   const setPillX = (progress, animate) => {
     const pill = pillRef.current
     if (!pill) return
-    const W = window.innerWidth
+    const W = navRef.current?.offsetWidth || window.innerWidth
     const leftDash = (W - 80) / 4
     const leftHist = (W - 80) * (3 / 4) + 80
     const px = leftDash + (leftHist - leftDash) * Math.max(0, Math.min(1, progress))
@@ -59,15 +60,15 @@ export default function MainLayout() {
     pill.style.left = `${px}px`
   }
 
-  // Sync container + pill when tabIndex changes (navigation or back-button)
-  useEffect(() => {
+  // useLayoutEffect → fires before first paint → no flash of wrong position
+  useLayoutEffect(() => {
     const isInit = !containerRef.current?.dataset.initialized
     snapTo(tabIndex, !isInit)
     setPillX(tabIndex, !isInit)
     if (containerRef.current) containerRef.current.dataset.initialized = 'true'
   }, [tabIndex]) // eslint-disable-line react-hooks/exhaustive-deps
 
-  // ── Touch listeners (non-passive touchmove to allow preventDefault) ────────
+  // ── Non-passive touch listeners ────────────────────────────────────────────
   useEffect(() => {
     const wrapper = wrapperRef.current
     if (!wrapper) return
@@ -78,7 +79,6 @@ export default function MainLayout() {
       touchStartMs.current = Date.now()
       dirLocked.current    = null
       swipeActive.current  = false
-      // Remove transition so the drag is instant
       if (containerRef.current) containerRef.current.style.transition = 'none'
       if (pillRef.current)      pillRef.current.style.transition      = 'none'
     }
@@ -87,26 +87,24 @@ export default function MainLayout() {
       const dx = e.touches[0].clientX - touchStartX.current
       const dy = e.touches[0].clientY - touchStartY.current
 
-      // Lock scroll direction after 8 px of movement
       if (dirLocked.current === null && (Math.abs(dx) > 8 || Math.abs(dy) > 8)) {
         dirLocked.current = Math.abs(dx) > Math.abs(dy) * 1.1 ? 'h' : 'v'
       }
       if (dirLocked.current !== 'h') return
 
-      e.preventDefault()          // stop vertical scroll during horizontal swipe
+      e.preventDefault()
       swipeActive.current = true
 
-      const idx    = tabIndexRef.current
+      const idx     = tabIndexRef.current
       const screenW = window.innerWidth
-      // dx → % of the 200%-wide container
-      let dragPct = (dx / screenW) * 50
+      let dragPct   = (dx / screenW) * 50
 
-      // Rubber band at edges (can't swipe past first/last tab)
+      // Rubber band at edges
       if (dragPct > 0 && idx === 0) dragPct *= 0.12
       if (dragPct < 0 && idx === 1) dragPct *= 0.12
 
       const baseX    = -idx * 50
-      const progress = idx + (-dragPct / 50)   // 0 = dashboard, 1 = history
+      const progress = idx + (-dragPct / 50)
 
       if (containerRef.current) {
         containerRef.current.style.transform = `translateX(${baseX + dragPct}%)`
@@ -115,29 +113,29 @@ export default function MainLayout() {
     }
 
     const onEnd = (e) => {
+      const idx = tabIndexRef.current
+
       if (!swipeActive.current) {
-        snapTo(tabIndexRef.current, true)
-        setPillX(tabIndexRef.current, true)
+        snapTo(idx, true)
+        setPillX(idx, true)
         return
       }
 
       const dx       = e.changedTouches[0].clientX - touchStartX.current
       const dt       = Math.max(Date.now() - touchStartMs.current, 1)
-      const velocity = Math.abs(dx) / dt           // px / ms
+      const velocity = Math.abs(dx) / dt
       const screenW  = window.innerWidth
 
-      const DIST_THRESHOLD = screenW * 0.22        // 22 % of screen width
-      const VEL_THRESHOLD  = 0.35                  // px / ms  (fast flick)
+      const DIST_THRESHOLD = screenW * 0.22
+      const VEL_THRESHOLD  = 0.35
 
-      const idx    = tabIndexRef.current
-      let newTab   = idx
-
+      let newTab = idx
       if (dx < 0 && idx === 0 && (Math.abs(dx) > DIST_THRESHOLD || velocity > VEL_THRESHOLD)) newTab = 1
       if (dx > 0 && idx === 1 && (Math.abs(dx) > DIST_THRESHOLD || velocity > VEL_THRESHOLD)) newTab = 0
 
       if (newTab !== idx) {
-        // navigate() → tabIndex state changes → useEffect snaps container
         navigate(newTab === 0 ? '/dashboard' : '/history')
+        // useLayoutEffect will fire and call snapTo + setPillX for the new tab
       } else {
         snapTo(idx, true)
         setPillX(idx, true)
@@ -147,7 +145,7 @@ export default function MainLayout() {
     }
 
     wrapper.addEventListener('touchstart', onStart, { passive: true  })
-    wrapper.addEventListener('touchmove',  onMove,  { passive: false }) // must be non-passive for preventDefault
+    wrapper.addEventListener('touchmove',  onMove,  { passive: false })
     wrapper.addEventListener('touchend',   onEnd,   { passive: true  })
 
     return () => {
@@ -226,10 +224,35 @@ export default function MainLayout() {
   return (
     <div className="flex flex-col h-full bg-slate-900">
 
+      {/* ── Static shared header — only for tab routes ── */}
+      {isTabRoute && (
+        <div className="flex-shrink-0 px-4 pt-6 pb-3 flex items-center justify-between">
+          <div className="flex items-center gap-3">
+            <button
+              onClick={() => navigate('/')}
+              className={`w-10 h-10 rounded-xl ${colorFor(user.id)} flex items-center justify-center font-bold text-white text-xs overflow-hidden flex-shrink-0`}
+              title="Cambiar usuario"
+            >
+              {user.avatar
+                ? <img src={user.avatar} alt={user.name} className="w-full h-full rounded-xl object-cover" />
+                : initials(user.name)
+              }
+            </button>
+            <div>
+              <p className="text-slate-400 text-xs">Bienvenido,</p>
+              <h1 className="text-white font-bold leading-tight">{user.name}</h1>
+            </div>
+          </div>
+          <button onClick={logout} className="p-2 text-slate-500 hover:text-white transition-colors">
+            <LogOut size={18} />
+          </button>
+        </div>
+      )}
+
       {/* ── Main content area ── */}
       <div className="flex-1 overflow-hidden relative">
 
-        {/* Two-panel swipe container — Dashboard | History, always mounted */}
+        {/* Two-panel swipe container — always mounted */}
         <div
           ref={wrapperRef}
           className="absolute inset-0"
@@ -237,53 +260,46 @@ export default function MainLayout() {
         >
           <div
             ref={containerRef}
-            style={{
-              display:       'flex',
-              width:         '200%',
-              height:        '100%',
-              willChange:    'transform',
-            }}
+            style={{ display: 'flex', width: '200%', height: '100%', willChange: 'transform' }}
           >
-            {/* Panel 0 — Dashboard */}
             <div style={{ width: '50%', height: '100%', overflowY: 'auto', overflowX: 'hidden' }}>
               <Dashboard />
             </div>
-            {/* Panel 1 — History / Progreso */}
             <div style={{ width: '50%', height: '100%', overflowY: 'auto', overflowX: 'hidden' }}>
               <History />
             </div>
           </div>
         </div>
 
-        {/* Outlet — only for non-tab routes (Session, Import …) */}
+        {/* Normal outlet — Session, Import … */}
         {!isTabRoute && <Outlet />}
 
       </div>
 
       {/* ── Bottom nav ── */}
       <nav
+        ref={navRef}
         className="flex-shrink-0 bg-slate-900 border-t border-slate-800 safe-bottom"
         style={{ overflow: 'visible', position: 'relative' }}
       >
-        {/* Sliding pill indicator — position driven by JS (setPillX) */}
+        {/* Sliding pill — position set entirely by JS (setPillX) */}
         <div
           ref={pillRef}
           style={{
-            position:     'absolute',
-            bottom:       '7px',
-            width:        '28px',
-            height:       '3px',
-            borderRadius: '9999px',
-            background:   '#6366f1',
-            opacity:      isTabRoute ? 1 : 0,
-            transform:    'translateX(-50%)',
-            pointerEvents:'none',
+            position:      'absolute',
+            bottom:        '7px',
+            width:         '28px',
+            height:        '3px',
+            borderRadius:  '9999px',
+            background:    '#6366f1',
+            opacity:       isTabRoute ? 1 : 0,
+            transform:     'translateX(-50%)',
+            pointerEvents: 'none',
           }}
         />
 
         <div className="flex items-end h-16">
 
-          {/* Dashboard */}
           <NavLink
             to="/dashboard"
             className={({ isActive }) =>
@@ -312,22 +328,22 @@ export default function MainLayout() {
                 onClick={handleCenterPress}
                 aria-label={activeSessionId ? 'Rutina activa' : 'Iniciar rutina'}
                 style={{
-                  width:        '100%',
-                  height:       '100%',
-                  borderRadius: '9999px',
-                  border:       '4px solid #0f172a',
-                  overflow:     'hidden',
-                  position:     'relative',
-                  display:      'flex',
-                  alignItems:   'center',
+                  width:          '100%',
+                  height:         '100%',
+                  borderRadius:   '9999px',
+                  border:         '4px solid #0f172a',
+                  overflow:       'hidden',
+                  position:       'relative',
+                  display:        'flex',
+                  alignItems:     'center',
                   justifyContent: 'center',
-                  cursor:       'pointer',
-                  background:   activeSessionId ? 'transparent' : '#4f46e5',
-                  boxShadow:    activeSessionId ? 'none' : '0 4px 20px rgba(99,102,241,0.35)',
-                  transition:   'transform 80ms',
+                  cursor:         'pointer',
+                  background:     activeSessionId ? 'transparent' : '#4f46e5',
+                  boxShadow:      activeSessionId ? 'none' : '0 4px 20px rgba(99,102,241,0.35)',
+                  transition:     'transform 80ms',
                 }}
-                onPointerDown={e => (e.currentTarget.style.transform = 'scale(0.93)')}
-                onPointerUp={e   => (e.currentTarget.style.transform = '')}
+                onPointerDown={e  => (e.currentTarget.style.transform = 'scale(0.93)')}
+                onPointerUp={e    => (e.currentTarget.style.transform = '')}
                 onPointerLeave={e => (e.currentTarget.style.transform = '')}
               >
                 {activeSessionId && (
@@ -349,7 +365,6 @@ export default function MainLayout() {
             </div>
           </div>
 
-          {/* Progreso */}
           <NavLink
             to="/history"
             className={({ isActive }) =>
@@ -389,16 +404,12 @@ export default function MainLayout() {
                 onClick={() => { setShowEndModal(false); setEndSessionInfo(null); navigate(`/session/${activeSessionId}`) }}
                 disabled={ending}
                 className="py-3.5 bg-slate-700 hover:bg-slate-600 disabled:opacity-50 text-white rounded-xl font-semibold transition-colors"
-              >
-                Seguir
-              </button>
+              >Seguir</button>
               <button
                 onClick={handleEndSession}
                 disabled={ending}
                 className="py-3.5 bg-red-600 hover:bg-red-500 disabled:opacity-60 text-white rounded-xl font-semibold transition-colors"
-              >
-                {ending ? 'Finalizando…' : 'Finalizar'}
-              </button>
+              >{ending ? 'Finalizando…' : 'Finalizar'}</button>
             </div>
           </div>
         </div>
@@ -424,16 +435,12 @@ export default function MainLayout() {
                 onClick={() => setShowStartModal(false)}
                 disabled={starting}
                 className="py-3.5 bg-slate-700 hover:bg-slate-600 disabled:opacity-50 text-white rounded-xl font-semibold transition-colors"
-              >
-                Cancelar
-              </button>
+              >Cancelar</button>
               <button
                 onClick={handleStartSession}
                 disabled={starting}
                 className="py-3.5 bg-emerald-600 hover:bg-emerald-500 disabled:opacity-60 text-white rounded-xl font-semibold transition-colors"
-              >
-                {starting ? 'Iniciando…' : 'Empezar'}
-              </button>
+              >{starting ? 'Iniciando…' : 'Empezar'}</button>
             </div>
           </div>
         </div>
