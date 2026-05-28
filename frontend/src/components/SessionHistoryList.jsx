@@ -73,16 +73,19 @@ function toUTCString(dateStr, timeStr) {
 function SortableExerciseGroup({ id, children }) {
   const { attributes, listeners, setNodeRef, transform, transition, isDragging } = useSortable({ id })
   return (
+    // Transform on the outer wrapper → entire group (header + sets) moves as a unit
+    // setNodeRef passed to children so it lands on the HEADER ONLY →
+    // dnd-kit measures just the header for collision detection (avoids tall-block confusion)
     <div
-      ref={setNodeRef}
       style={{
         transform: CSS.Transform.toString(transform),
         transition,
-        opacity: isDragging ? 0.4 : 1,
-        zIndex: isDragging ? 10 : undefined,
+        opacity:  isDragging ? 0.4 : 1,
+        position: 'relative',
+        zIndex:   isDragging ? 10 : 1,
       }}
     >
-      {children({ dragHandleProps: { ...attributes, ...listeners } })}
+      {children({ dragHandleProps: { ...attributes, ...listeners }, headerRef: setNodeRef })}
     </div>
   )
 }
@@ -500,10 +503,10 @@ export default function SessionHistoryList({ userId, onDataChanged }) {
                                   <div className="space-y-4">
                                     {groups.map(group => (
                                       <SortableExerciseGroup key={group.exercise_id} id={`group-${group.exercise_id}`}>
-                                        {({ dragHandleProps }) => (
+                                        {({ dragHandleProps, headerRef }) => (
                                           <div>
-                                            {/* Group header with drag handle */}
-                                            <div className="flex items-center gap-2 mb-2">
+                                            {/* Group header — ref here so dnd-kit only measures the header */}
+                                            <div ref={headerRef} className="flex items-center gap-2 mb-2">
                                               <button
                                                 {...dragHandleProps}
                                                 className="text-slate-700 hover:text-slate-500 transition-colors cursor-grab active:cursor-grabbing touch-none"

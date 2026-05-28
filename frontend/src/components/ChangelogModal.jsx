@@ -3,6 +3,15 @@ import BottomSheet from './BottomSheet'
 
 const CHANGELOG = [
   {
+    version: '1.6.3',
+    date: '28 may 2026',
+    changes: [
+      'Fixed: Reordenación de ejercicios en el histórico (colisión mejorada)',
+      'Fixed: Modal de finalizar sesión sin animación de entrada',
+      'Mejora: Zona de arrastre en paneles cubre toda la ventana',
+    ],
+  },
+  {
     version: '1.6.2',
     date: '28 may 2026',
     changes: [
