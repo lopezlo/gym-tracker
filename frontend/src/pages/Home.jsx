@@ -1,10 +1,119 @@
 import { useState, useEffect, useRef } from 'react'
 import { useNavigate } from 'react-router-dom'
-import { Plus, Trash2, Dumbbell, Download, AlertTriangle, X, Camera } from 'lucide-react'
+import { Plus, Trash2, Dumbbell, Download, AlertTriangle, X, Camera, MoreHorizontal, Edit2 } from 'lucide-react'
 import { api } from '../api/client'
 import { useApp } from '../context/AppContext'
 import ChangelogModal from '../components/ChangelogModal'
 import BottomSheet from '../components/BottomSheet'
+
+const COLORS = [
+  'bg-indigo-500', 'bg-violet-500', 'bg-pink-500', 'bg-emerald-500',
+  'bg-amber-500', 'bg-sky-500', 'bg-rose-500', 'bg-teal-500',
+]
+const colorFor = (id) => COLORS[id % COLORS.length]
+const initials = (name) => name.split(' ').map(w => w[0]).join('').toUpperCase().slice(0, 2)
+
+const compressAvatar = (file) => new Promise((resolve) => {
+  const img = new Image()
+  const url = URL.createObjectURL(file)
+  img.onload = () => {
+    URL.revokeObjectURL(url)
+    const canvas = document.createElement('canvas')
+    canvas.width = 120; canvas.height = 120
+    const ctx = canvas.getContext('2d')
+    const s = Math.min(img.width, img.height)
+    ctx.drawImage(img, (img.width - s) / 2, (img.height - s) / 2, s, s, 0, 0, 120, 120)
+    resolve(canvas.toDataURL('image/jpeg', 0.8))
+  }
+  img.src = url
+})
+
+function Avatar({ user, size = 'md' }) {
+  const dim = size === 'lg' ? 'w-20 h-20 text-xl rounded-2xl' : 'w-11 h-11 text-sm rounded-xl'
+  return user.avatar
+    ? <img src={user.avatar} alt={user.name} className={`${dim} object-cover`} />
+    : <div className={`${dim} ${colorFor(user.id)} flex items-center justify-center font-bold text-white`}>{initials(user.name)}</div>
+}
+
+// ── Edit user modal ────────────────────────────────────────────────────────────
+
+function EditUserModal({ user, onSave, onCancel }) {
+  const [name, setName] = useState(user.name)
+  const [avatar, setAvatar] = useState(user.avatar)
+  const [saving, setSaving] = useState(false)
+  const fileRef = useRef(null)
+
+  const handleFile = async (e) => {
+    const file = e.target.files?.[0]
+    if (!file) return
+    const compressed = await compressAvatar(file)
+    setAvatar(compressed)
+    e.target.value = ''
+  }
+
+  const handleSave = async () => {
+    if (!name.trim()) return
+    setSaving(true)
+    try { await onSave({ name: name.trim(), avatar }) }
+    finally { setSaving(false) }
+  }
+
+  return (
+    <BottomSheet onClose={onCancel} locked={saving}>
+      {({ dismiss }) => (
+        <div className="px-6 pb-8 pt-2 space-y-5">
+          <h2 className="text-white font-bold text-lg">Editar perfil</h2>
+
+          {/* Avatar with camera overlay */}
+          <div className="flex justify-center">
+            <div className="relative cursor-pointer" onClick={() => fileRef.current?.click()}>
+              {avatar
+                ? <img src={avatar} alt={name} className="w-20 h-20 rounded-2xl object-cover" />
+                : <div className={`w-20 h-20 rounded-2xl ${colorFor(user.id)} flex items-center justify-center font-bold text-white text-xl`}>{initials(name || user.name)}</div>}
+              <div className="absolute inset-0 flex items-center justify-center rounded-2xl bg-black/50">
+                <Camera size={22} className="text-white" />
+              </div>
+            </div>
+          </div>
+
+          {/* Name input */}
+          <div>
+            <label className="text-xs text-slate-400 block mb-1.5">Nombre</label>
+            <input
+              autoFocus
+              value={name}
+              onChange={e => setName(e.target.value)}
+              onKeyDown={e => e.key === 'Enter' && handleSave()}
+              placeholder="Nombre de usuario"
+              className="w-full bg-slate-700 text-white rounded-xl px-4 py-3 text-sm outline-none focus:ring-2 focus:ring-indigo-500 placeholder-slate-500"
+            />
+          </div>
+
+          <div className="grid grid-cols-2 gap-3">
+            <button
+              onClick={() => dismiss()}
+              disabled={saving}
+              className="py-3.5 bg-slate-700 hover:bg-slate-600 disabled:opacity-50 text-white rounded-xl font-semibold transition-colors"
+            >
+              Cancelar
+            </button>
+            <button
+              onClick={handleSave}
+              disabled={saving || !name.trim()}
+              className="py-3.5 bg-indigo-600 hover:bg-indigo-500 disabled:opacity-50 text-white rounded-xl font-semibold transition-colors"
+            >
+              {saving ? 'Guardando…' : 'Guardar'}
+            </button>
+          </div>
+
+          <input ref={fileRef} type="file" accept="image/*" className="hidden" onChange={handleFile} />
+        </div>
+      )}
+    </BottomSheet>
+  )
+}
+
+// ── Delete modal ───────────────────────────────────────────────────────────────
 
 function DeleteModal({ user, onConfirm, onCancel }) {
   const [downloaded, setDownloaded] = useState(false)
@@ -42,9 +151,7 @@ function DeleteModal({ user, onConfirm, onCancel }) {
           >
             <Download size={18} className={downloaded ? 'text-emerald-400' : 'text-indigo-400'} />
             <div className="text-left">
-              <p className="font-semibold text-sm">
-                {downloaded ? 'CSV descargado ✓' : 'Descargar datos en CSV'}
-              </p>
+              <p className="font-semibold text-sm">{downloaded ? 'CSV descargado ✓' : 'Descargar datos en CSV'}</p>
               <p className={`text-xs mt-0.5 ${downloaded ? 'text-emerald-500/70' : 'text-slate-400'}`}>
                 {downloaded ? 'Ya puedes eliminar la cuenta' : 'Guarda un respaldo antes de eliminar'}
               </p>
@@ -73,23 +180,7 @@ function DeleteModal({ user, onConfirm, onCancel }) {
   )
 }
 
-const compressAvatar = (file) => new Promise((resolve) => {
-  const img = new Image()
-  const url = URL.createObjectURL(file)
-  img.onload = () => {
-    URL.revokeObjectURL(url)
-    const canvas = document.createElement('canvas')
-    canvas.width = 120
-    canvas.height = 120
-    const ctx = canvas.getContext('2d')
-    const s = Math.min(img.width, img.height)
-    const sx = (img.width - s) / 2
-    const sy = (img.height - s) / 2
-    ctx.drawImage(img, sx, sy, s, s, 0, 0, 120, 120)
-    resolve(canvas.toDataURL('image/jpeg', 0.8))
-  }
-  img.src = url
-})
+// ── Main page ──────────────────────────────────────────────────────────────────
 
 export default function Home() {
   const { selectUser } = useApp()
@@ -100,18 +191,23 @@ export default function Home() {
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState('')
   const [pendingDelete, setPendingDelete] = useState(null)
+  const [editingUser, setEditingUser] = useState(null)
+  const [openMenu, setOpenMenu] = useState(null)
   const [showChangelog, setShowChangelog] = useState(false)
-  const fileInputRef = useRef(null)
-  const [avatarUserId, setAvatarUserId] = useState(null)
 
   useEffect(() => {
     api.getUsers().then(setUsers).catch(() => {}).finally(() => setLoading(false))
   }, [])
 
-  const handleSelect = (u) => {
-    selectUser(u)
-    navigate('/dashboard')
-  }
+  // Close menu on outside tap
+  useEffect(() => {
+    if (!openMenu) return
+    const close = () => setOpenMenu(null)
+    document.addEventListener('pointerdown', close)
+    return () => document.removeEventListener('pointerdown', close)
+  }, [openMenu])
+
+  const handleSelect = (u) => { selectUser(u); navigate('/dashboard') }
 
   const handleCreate = async (e) => {
     e.preventDefault()
@@ -123,9 +219,7 @@ export default function Home() {
       setNewName('')
       setAdding(false)
       handleSelect(u)
-    } catch (e) {
-      setError(e.message)
-    }
+    } catch (e) { setError(e.message) }
   }
 
   const confirmDelete = async () => {
@@ -135,40 +229,17 @@ export default function Home() {
     setPendingDelete(null)
   }
 
-  const handleExport = (e, user) => {
-    e.stopPropagation()
+  const handleExport = (user) => {
     const a = document.createElement('a')
     a.href = `/api/users/${user.id}/export`
     a.click()
   }
 
-  const handleAvatarClick = (e, userId) => {
-    e.stopPropagation()
-    setAvatarUserId(userId)
-    fileInputRef.current?.click()
+  const handleEditSave = async ({ name, avatar }) => {
+    const updated = await api.updateUser(editingUser.id, { name, avatar })
+    setUsers(prev => prev.map(u => u.id === editingUser.id ? updated : u))
+    setEditingUser(null)
   }
-
-  const handleAvatarFile = async (e) => {
-    const file = e.target.files?.[0]
-    if (!file || !avatarUserId) return
-    try {
-      const avatar = await compressAvatar(file)
-      const updated = await api.updateUser(avatarUserId, { avatar })
-      setUsers(prev => prev.map(u => u.id === avatarUserId ? updated : u))
-    } catch {
-      alert('Error al actualizar la foto')
-    }
-    e.target.value = ''
-    setAvatarUserId(null)
-  }
-
-  const initials = (name) => name.split(' ').map(w => w[0]).join('').toUpperCase().slice(0, 2)
-
-  const COLORS = [
-    'bg-indigo-500', 'bg-violet-500', 'bg-pink-500', 'bg-emerald-500',
-    'bg-amber-500', 'bg-sky-500', 'bg-rose-500', 'bg-teal-500',
-  ]
-  const colorFor = (id) => COLORS[id % COLORS.length]
 
   return (
     <div className="h-full bg-slate-900 flex flex-col items-center justify-center px-4 py-12 overflow-y-auto">
@@ -183,56 +254,68 @@ export default function Home() {
 
         {loading ? (
           <div className="space-y-3">
-            {[1, 2, 3].map(i => (
-              <div key={i} className="h-16 bg-slate-800 rounded-2xl animate-pulse" />
-            ))}
+            {[1, 2, 3].map(i => <div key={i} className="h-16 bg-slate-800 rounded-2xl animate-pulse" />)}
           </div>
         ) : (
           <div className="space-y-3">
             {users.map(u => (
-              <button
+              <div
                 key={u.id}
-                onClick={() => handleSelect(u)}
-                className="w-full flex items-center gap-4 bg-slate-800 hover:bg-slate-700 active:scale-[0.98] rounded-2xl px-4 py-3.5 transition-all group"
+                className="flex items-center bg-slate-800 hover:bg-slate-750 rounded-2xl transition-colors"
               >
-                {/* Avatar */}
-                <div className="relative flex-shrink-0" onClick={e => e.stopPropagation()}>
-                  {u.avatar ? (
-                    <img src={u.avatar} alt={u.name} className="w-11 h-11 rounded-xl object-cover" />
-                  ) : (
-                    <div className={`w-11 h-11 rounded-xl ${colorFor(u.id)} flex items-center justify-center font-bold text-white text-sm`}>
-                      {initials(u.name)}
+                {/* Avatar + name — main tap target */}
+                <button
+                  onClick={() => handleSelect(u)}
+                  className="flex items-center gap-4 flex-1 px-4 py-3.5 text-left active:scale-[0.98] transition-transform min-w-0"
+                >
+                  <div className="flex-shrink-0">
+                    <Avatar user={u} size="md" />
+                  </div>
+                  <span className="font-semibold text-white truncate">{u.name}</span>
+                </button>
+
+                {/* ⋯ menu */}
+                <div
+                  className="relative flex-shrink-0 pr-2"
+                  onPointerDown={e => e.stopPropagation()}
+                >
+                  <button
+                    onClick={e => { e.stopPropagation(); setOpenMenu(prev => prev === u.id ? null : u.id) }}
+                    className="p-2 rounded-xl text-slate-500 hover:text-white hover:bg-slate-700 transition-colors"
+                  >
+                    <MoreHorizontal size={16} />
+                  </button>
+
+                  {openMenu === u.id && (
+                    <div className="absolute right-0 top-full mt-1 bg-slate-700 border border-slate-600 rounded-xl shadow-xl z-30 overflow-hidden min-w-[140px]">
+                      <button
+                        onPointerDown={e => e.stopPropagation()}
+                        onClick={() => { setOpenMenu(null); setEditingUser(u) }}
+                        className="w-full flex items-center gap-2.5 px-4 py-2.5 text-sm text-slate-300 hover:bg-slate-600 hover:text-white transition-colors"
+                      >
+                        <Edit2 size={13} />
+                        Editar
+                      </button>
+                      <button
+                        onPointerDown={e => e.stopPropagation()}
+                        onClick={() => { setOpenMenu(null); handleExport(u) }}
+                        className="w-full flex items-center gap-2.5 px-4 py-2.5 text-sm text-slate-300 hover:bg-slate-600 hover:text-white transition-colors"
+                      >
+                        <Download size={13} />
+                        Exportar CSV
+                      </button>
+                      <button
+                        onPointerDown={e => e.stopPropagation()}
+                        onClick={() => { setOpenMenu(null); setPendingDelete(u) }}
+                        className="w-full flex items-center gap-2.5 px-4 py-2.5 text-sm text-red-400 hover:bg-red-500/10 transition-colors"
+                      >
+                        <Trash2 size={13} />
+                        Eliminar
+                      </button>
                     </div>
                   )}
-                  <button
-                    onClick={e => handleAvatarClick(e, u.id)}
-                    title="Cambiar foto"
-                    className="absolute inset-0 flex items-center justify-center rounded-xl bg-black/50 opacity-0 group-hover:opacity-100 transition-opacity"
-                  >
-                    <Camera size={14} className="text-white" />
-                  </button>
                 </div>
-
-                <span className="font-semibold text-white flex-1 text-left">{u.name}</span>
-
-                {/* Export button */}
-                <button
-                  onClick={(e) => handleExport(e, u)}
-                  title="Exportar datos CSV"
-                  className="opacity-0 group-hover:opacity-100 p-1.5 rounded-lg hover:bg-indigo-500/20 text-slate-500 hover:text-indigo-400 transition-all"
-                >
-                  <Download size={16} />
-                </button>
-
-                {/* Delete button */}
-                <button
-                  onClick={(e) => { e.stopPropagation(); setPendingDelete(u) }}
-                  title="Eliminar usuario"
-                  className="opacity-0 group-hover:opacity-100 p-1.5 rounded-lg hover:bg-red-500/20 text-slate-500 hover:text-red-400 transition-all"
-                >
-                  <Trash2 size={16} />
-                </button>
-              </button>
+              </div>
             ))}
 
             {adding ? (
@@ -274,16 +357,6 @@ export default function Home() {
         )}
       </div>
 
-      {/* Hidden file input for avatar upload */}
-      <input
-        ref={fileInputRef}
-        type="file"
-        accept="image/*"
-        className="hidden"
-        onChange={handleAvatarFile}
-      />
-
-      {/* Legal footer */}
       <p className="text-center text-slate-700 text-xs mt-8">
         No se almacenan datos personales. Solo se registran los ejercicios realizados.
         <br />
@@ -298,12 +371,19 @@ export default function Home() {
 
       {showChangelog && <ChangelogModal onClose={() => setShowChangelog(false)} />}
 
-      {/* Delete confirmation modal */}
       {pendingDelete && (
         <DeleteModal
           user={pendingDelete}
           onConfirm={confirmDelete}
           onCancel={() => setPendingDelete(null)}
+        />
+      )}
+
+      {editingUser && (
+        <EditUserModal
+          user={editingUser}
+          onSave={handleEditSave}
+          onCancel={() => setEditingUser(null)}
         />
       )}
     </div>

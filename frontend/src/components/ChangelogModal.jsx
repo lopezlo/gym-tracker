@@ -3,6 +3,15 @@ import BottomSheet from './BottomSheet'
 
 const CHANGELOG = [
   {
+    version: '1.6.6',
+    date: '28 may 2026',
+    changes: [
+      'Nuevo: Menú ⋯ en el selector de usuarios (editar / exportar / eliminar)',
+      'Nuevo: Editar nombre y foto de perfil desde el menú',
+      'Mejora: La foto solo se puede cambiar desde el modo edición',
+    ],
+  },
+  {
     version: '1.6.5',
     date: '28 may 2026',
     changes: [

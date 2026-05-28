@@ -5,7 +5,7 @@ export default defineConfig({
   plugins: [react()],
   define: {
     __BUILD_DATE__: JSON.stringify(new Date().toISOString().split('T')[0]),
-    __APP_VERSION__: JSON.stringify('1.6.5'),
+    __APP_VERSION__: JSON.stringify('1.6.6'),
   },
   server: {
     proxy: {
