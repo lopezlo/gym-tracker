@@ -23,13 +23,13 @@ router.get('/', async (req, res) => {
 })
 
 router.post('/', async (req, res) => {
-  const { name, type = 'reps' } = req.body
+  const { name, type = 'reps', category = null } = req.body
   if (!name?.trim()) return res.status(400).json({ error: 'Name required' })
   if (!['reps', 'time'].includes(type)) return res.status(400).json({ error: 'type must be reps or time' })
   try {
     const { rows } = await pool.query(
-      'INSERT INTO exercises (name, type) VALUES ($1, $2) RETURNING *',
-      [name.trim(), type]
+      'INSERT INTO exercises (name, type, category) VALUES ($1, $2, $3) RETURNING *',
+      [name.trim(), type, category ?? null]
     )
     res.status(201).json(rows[0])
   } catch (e) {
@@ -42,6 +42,18 @@ router.post('/', async (req, res) => {
     }
     res.status(500).json({ error: e.message })
   }
+})
+
+router.patch('/:id', async (req, res) => {
+  const { category } = req.body
+  try {
+    const { rows: [ex] } = await pool.query(
+      'UPDATE exercises SET category = $1 WHERE id = $2 RETURNING *',
+      [category ?? null, req.params.id]
+    )
+    if (!ex) return res.status(404).json({ error: 'Exercise not found' })
+    res.json(ex)
+  } catch (e) { res.status(500).json({ error: e.message }) }
 })
 
 router.get('/:id/last-set', async (req, res) => {

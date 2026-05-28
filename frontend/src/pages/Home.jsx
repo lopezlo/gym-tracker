@@ -194,6 +194,7 @@ export default function Home() {
   const [editingUser, setEditingUser] = useState(null)
   const [openMenu, setOpenMenu] = useState(null)
   const [showChangelog, setShowChangelog] = useState(false)
+  const [pressedUser, setPressedUser] = useState(null)
 
   useEffect(() => {
     api.getUsers().then(setUsers).catch(() => {}).finally(() => setLoading(false))
@@ -208,6 +209,12 @@ export default function Home() {
   }, [openMenu])
 
   const handleSelect = (u) => { selectUser(u); navigate('/dashboard') }
+
+  const handleSelectAnimated = (u) => {
+    navigator.vibrate?.(15)
+    setPressedUser(u.id)
+    setTimeout(() => { setPressedUser(null); handleSelect(u) }, 140)
+  }
 
   const handleCreate = async (e) => {
     e.preventDefault()
@@ -261,11 +268,16 @@ export default function Home() {
             {users.map(u => (
               <div
                 key={u.id}
-                className="flex items-center bg-slate-800 hover:bg-slate-700 rounded-2xl transition-colors"
+                className="flex items-center bg-slate-800 rounded-2xl transition-colors overflow-hidden"
+                style={{
+                  transform: pressedUser === u.id ? 'scale(0.96)' : 'scale(1)',
+                  transition: 'transform 140ms cubic-bezier(0.34,1.2,0.64,1)',
+                  background: pressedUser === u.id ? '#1e293b' : undefined,
+                }}
               >
                 {/* Avatar + name — main tap target */}
                 <button
-                  onClick={() => handleSelect(u)}
+                  onClick={() => handleSelectAnimated(u)}
                   className="flex items-center gap-4 flex-1 px-4 py-3.5 text-left active:scale-[0.98] transition-transform min-w-0"
                 >
                   <div className="flex-shrink-0">

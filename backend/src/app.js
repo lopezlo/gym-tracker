@@ -1,7 +1,11 @@
 require('dotenv').config({ path: require('path').join(__dirname, '../.env') })
 
 const express = require('express')
-const cors = require('cors')
+const cors    = require('cors')
+const pool    = require('./db')
+
+// Safe migration: add category column to exercises if not present
+pool.query(`ALTER TABLE exercises ADD COLUMN IF NOT EXISTS category VARCHAR(50)`).catch(() => {})
 
 const usersRouter    = require('./routes/users')
 const exercisesRouter = require('./routes/exercises')

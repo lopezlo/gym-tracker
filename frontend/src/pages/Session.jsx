@@ -1,4 +1,4 @@
-import { useState, useEffect } from 'react'
+import { useState, useEffect, useRef, useMemo } from 'react'
 import { useParams, useNavigate } from 'react-router-dom'
 import { Plus, ChevronDown, Trash2, Clock, Dumbbell, CheckCircle } from 'lucide-react'
 import { api } from '../api/client'
@@ -32,17 +32,68 @@ function fmtDur(secs) {
   return `${String(m).padStart(2, '0')}:${String(s).padStart(2, '0')}`
 }
 
+function playAlert() {
+  navigator.vibrate?.([800])
+  try {
+    const ctx = new (window.AudioContext || window.webkitAudioContext)()
+    const osc = ctx.createOscillator()
+    const gain = ctx.createGain()
+    osc.connect(gain); gain.connect(ctx.destination)
+    osc.type = 'sine'; osc.frequency.value = 880
+    gain.gain.setValueAtTime(0.35, ctx.currentTime)
+    gain.gain.exponentialRampToValueAtTime(0.001, ctx.currentTime + 1.0)
+    osc.start(); osc.stop(ctx.currentTime + 1.0)
+  } catch {}
+}
+
 function RestTimer({ lastSetAt }) {
   const [rest, setRest] = useState(0)
+  const alertedRef = useRef(false)
+
+  // Re-read settings each time a new set is added
+  const { restAlertEnabled = false, restDuration = 90 } = useMemo(() => {
+    try { return JSON.parse(localStorage.getItem('gym_settings')) ?? {} } catch { return {} }
+  }, [lastSetAt])
+
   useEffect(() => {
     if (!lastSetAt) return
+    alertedRef.current = false
     const t = toUTC(lastSetAt)
-    const tick = () => setRest(Math.floor((Date.now() - t.getTime()) / 1000))
+    const tick = () => {
+      const elapsed = Math.floor((Date.now() - t.getTime()) / 1000)
+      setRest(elapsed)
+      if (restAlertEnabled && elapsed >= restDuration && !alertedRef.current) {
+        alertedRef.current = true
+        playAlert()
+      }
+    }
     tick()
     const id = setInterval(tick, 1000)
     return () => clearInterval(id)
-  }, [lastSetAt])
+  }, [lastSetAt, restAlertEnabled, restDuration])
+
   if (!lastSetAt) return null
+
+  if (restAlertEnabled) {
+    const remaining = restDuration - rest
+    if (remaining > 0) {
+      const cls = remaining <= 10 ? 'text-red-400' : remaining <= 30 ? 'text-amber-400' : 'text-emerald-400'
+      return (
+        <div className="flex items-center gap-1.5 text-slate-400 text-sm">
+          <Clock size={13} />
+          <span>Descanso: <span className={`font-mono font-semibold ${cls}`}>{fmtDur(remaining)}</span></span>
+        </div>
+      )
+    }
+    return (
+      <div className="flex items-center gap-1.5 text-sm">
+        <Clock size={13} className="text-red-400" />
+        <span className="text-red-400 font-semibold">¡A por ello!</span>
+        <span className="text-slate-500 text-xs font-mono ml-1">+{fmtDur(-remaining)}</span>
+      </div>
+    )
+  }
+
   return (
     <div className="flex items-center gap-1.5 text-slate-400 text-sm">
       <Clock size={13} />
@@ -363,7 +414,9 @@ export default function Session() {
                 <div>
                   <h2 className="text-white font-bold text-lg leading-tight">¿Finalizar sesión?</h2>
                   <p className="text-slate-400 text-sm mt-0.5">
-                    {fmtDur(sessionElapsed)} · {sets.length} serie{sets.length !== 1 ? 's' : ''}
+                    {sets.length === 0
+                      ? 'Sin series — la sesión no se guardará'
+                      : `${fmtDur(sessionElapsed)} · ${sets.length} serie${sets.length !== 1 ? 's' : ''}`}
                   </p>
                 </div>
               </div>

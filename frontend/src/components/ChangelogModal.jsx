@@ -3,6 +3,21 @@ import BottomSheet from './BottomSheet'
 
 const CHANGELOG = [
   {
+    version: '1.7.0',
+    date: '28 may 2026',
+    changes: [
+      'Nuevo: Selector de ejercicios con categorías por músculo y favoritos (⭐)',
+      'Nuevo: Temporizador de descanso con cuenta atrás y aviso por vibración',
+      'Nuevo: Panel de ajustes accesible desde el avatar (temporizador + salir)',
+      'Nuevo: Botón "Salir" con aviso si hay sesión activa (finalizar / salir igual)',
+      'Nuevo: Animación de pulsación en tarjetas de usuario',
+      'Mejora: Finalizar sesión vacía informa de que no se guardará',
+      'Fixed: Menú desplegable de sesión solapado por la tarjeta siguiente',
+      'Fixed: "Exportar datos" descuadrado en el menú de usuario',
+      'Fixed: Color hover incorrecto en selector de usuarios (slate-750)',
+    ],
+  },
+  {
     version: '1.6.6',
     date: '28 may 2026',
     changes: [

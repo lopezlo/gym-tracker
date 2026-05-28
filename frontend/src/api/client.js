@@ -22,7 +22,8 @@ export const api = {
   deleteUser: (id) => req('DELETE', `/users/${id}`),
 
   getExercises: (userId) => req('GET', `/exercises${userId ? `?user_id=${userId}` : ''}`),
-  createExercise: (name, type = 'reps') => req('POST', '/exercises', { name, type }),
+  createExercise: (name, type = 'reps', category = null) => req('POST', '/exercises', { name, type, category }),
+  updateExercise: (id, data) => req('PATCH', `/exercises/${id}`, data),
 
   getSessions: (userId, limit = 50) => req('GET', `/sessions?user_id=${userId}&limit=${limit}`),
   getActiveSession: (userId) => req('GET', `/sessions?user_id=${userId}&active=true&limit=1`),

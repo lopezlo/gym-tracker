@@ -6,6 +6,7 @@ import { api } from '../api/client'
 import Dashboard from './Dashboard'
 import History from './History'
 import BottomSheet from '../components/BottomSheet'
+import SettingsSheet from '../components/SettingsSheet'
 
 const COLORS = ['bg-indigo-500', 'bg-violet-500', 'bg-pink-500', 'bg-emerald-500', 'bg-amber-500', 'bg-sky-500', 'bg-rose-500', 'bg-teal-500']
 const colorFor  = (id)   => COLORS[id % COLORS.length]
@@ -20,8 +21,10 @@ export default function MainLayout() {
   const tabIndex   = location.pathname === '/history' ? 1 : 0
   const tabIndexRef = useRef(tabIndex)
 
-  const [showStartModal, setShowStartModal] = useState(false)
-  const [showEndModal,   setShowEndModal]   = useState(false)
+  const [showStartModal,   setShowStartModal]   = useState(false)
+  const [showEndModal,     setShowEndModal]     = useState(false)
+  const [showSettings,     setShowSettings]     = useState(false)
+  const [showLogoutWarn,   setShowLogoutWarn]   = useState(false)
   const [starting, setStarting] = useState(false)
   const [ending,   setEnding]   = useState(false)
   const [endSessionInfo, setEndSessionInfo] = useState(null)
@@ -230,9 +233,9 @@ export default function MainLayout() {
         <div className="flex-shrink-0 px-4 pt-6 pb-3 flex items-center justify-between">
           <div className="flex items-center gap-3">
             <button
-              onClick={() => navigate('/')}
-              className={`w-10 h-10 rounded-xl ${colorFor(user.id)} flex items-center justify-center font-bold text-white text-xs overflow-hidden flex-shrink-0`}
-              title="Cambiar usuario"
+              onClick={() => setShowSettings(true)}
+              className={`w-10 h-10 rounded-xl ${colorFor(user.id)} flex items-center justify-center font-bold text-white text-xs overflow-hidden flex-shrink-0 active:scale-95 transition-transform`}
+              title="Ajustes"
             >
               {user.avatar
                 ? <img src={user.avatar} alt={user.name} className="w-full h-full rounded-xl object-cover" />
@@ -244,8 +247,12 @@ export default function MainLayout() {
               <h1 className="text-white font-bold leading-tight">{user.name}</h1>
             </div>
           </div>
-          <button onClick={logout} className="p-2 text-slate-500 hover:text-white transition-colors">
-            <LogOut size={18} />
+          <button
+            onClick={() => activeSessionId ? setShowLogoutWarn(true) : logout()}
+            className="flex items-center gap-1.5 px-2 py-2 text-slate-500 hover:text-white transition-colors"
+          >
+            <LogOut size={16} />
+            <span className="text-xs font-medium">Salir</span>
           </button>
         </div>
       )}
@@ -413,6 +420,53 @@ export default function MainLayout() {
                   disabled={ending}
                   className="py-3.5 bg-red-600 hover:bg-red-500 disabled:opacity-60 text-white rounded-xl font-semibold transition-colors"
                 >{ending ? 'Finalizando…' : 'Finalizar'}</button>
+              </div>
+            </div>
+          )}
+        </BottomSheet>
+      )}
+
+      {/* ── Settings sheet ── */}
+      {showSettings && <SettingsSheet onClose={() => setShowSettings(false)} />}
+
+      {/* ── Logout warning (active session) ── */}
+      {showLogoutWarn && (
+        <BottomSheet onClose={() => setShowLogoutWarn(false)}>
+          {({ dismiss }) => (
+            <div className="px-6 pb-6 pt-2 space-y-5">
+              <div>
+                <h2 className="text-white font-bold text-lg">Tienes una sesión activa</h2>
+                <p className="text-slate-400 text-sm mt-1">
+                  ¿Qué quieres hacer con la sesión en curso?
+                </p>
+              </div>
+              <div className="space-y-2">
+                <button
+                  onClick={() => { dismiss(); navigate(`/session/${activeSessionId}`) }}
+                  className="w-full py-3.5 bg-slate-700 hover:bg-slate-600 text-white rounded-xl font-semibold transition-colors"
+                >
+                  Seguir entrenando
+                </button>
+                <button
+                  onClick={async () => {
+                    try {
+                      const s = await api.getSession(activeSessionId)
+                      if (!s.sets?.length) await api.deleteSession(activeSessionId)
+                      else await api.endSession(activeSessionId)
+                    } catch {}
+                    setActiveSession(null)
+                    logout()
+                  }}
+                  className="w-full py-3.5 bg-indigo-600 hover:bg-indigo-500 text-white rounded-xl font-semibold transition-colors"
+                >
+                  Finalizar sesión y salir
+                </button>
+                <button
+                  onClick={() => { logout(); dismiss() }}
+                  className="w-full py-3 text-slate-500 hover:text-slate-300 text-sm transition-colors"
+                >
+                  Salir sin finalizar
+                </button>
               </div>
             </div>
           )}
