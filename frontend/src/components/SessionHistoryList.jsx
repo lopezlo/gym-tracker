@@ -372,8 +372,11 @@ export default function SessionHistoryList({ userId, onDataChanged }) {
                     return (
                       <div
                         key={session.id}
-                        className="bg-slate-800 rounded-2xl row-in"
-                        style={{ animationDelay: `${Math.min(idx, 5) * 45}ms` }}
+                        className="bg-slate-800 rounded-2xl row-in relative"
+                        style={{
+                          animationDelay: `${Math.min(idx, 5) * 45}ms`,
+                          zIndex: openMenu === sessionMenuKey ? 10 : undefined,
+                        }}
                       >
                         {/* Session header — edit mode */}
                         {isEditingThis ? (
