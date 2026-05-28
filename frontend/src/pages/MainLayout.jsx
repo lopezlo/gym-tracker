@@ -3,54 +3,165 @@ import { Outlet, NavLink, useNavigate, useLocation } from 'react-router-dom'
 import { LayoutDashboard, BarChart2, Activity } from 'lucide-react'
 import { useApp } from '../context/AppContext'
 import { api } from '../api/client'
+import Dashboard from './Dashboard'
+import History from './History'
 
 export default function MainLayout() {
   const { user, activeSessionId, setActiveSession } = useApp()
   const navigate = useNavigate()
   const location = useLocation()
-  const histActive = location.pathname.startsWith('/history')
+
+  // Tab routes use the two-panel swipe container.
+  // Other routes (session, import) use the normal <Outlet />.
+  const isTabRoute = location.pathname === '/dashboard' || location.pathname === '/history'
+  const tabIndex   = location.pathname === '/history' ? 1 : 0
+  const tabIndexRef = useRef(tabIndex)
+
   const [showStartModal, setShowStartModal] = useState(false)
-  const [showEndModal, setShowEndModal] = useState(false)
+  const [showEndModal,   setShowEndModal]   = useState(false)
   const [starting, setStarting] = useState(false)
-  const [ending, setEnding] = useState(false)
+  const [ending,   setEnding]   = useState(false)
   const [endSessionInfo, setEndSessionInfo] = useState(null)
-  const [fadeOut, setFadeOut] = useState(false)
-  const touchStartX = useRef(null)
-  const touchStartY = useRef(null)
 
-  const triggerSwipeNav = (path) => {
-    setFadeOut(true)
-    setTimeout(() => {
-      navigate(path)
-      setFadeOut(false)
-    }, 150)
+  // ── Swipe refs ─────────────────────────────────────────────────────────────
+  const wrapperRef   = useRef(null)   // receives touch events
+  const containerRef = useRef(null)   // the 200%-wide sliding div
+  const pillRef      = useRef(null)   // nav pill indicator
+
+  const touchStartX   = useRef(0)
+  const touchStartY   = useRef(0)
+  const touchStartMs  = useRef(0)
+  const dirLocked     = useRef(null)  // null | 'h' | 'v'
+  const swipeActive   = useRef(false)
+
+  // Keep tabIndexRef in sync so closures inside useEffect always read current
+  useEffect(() => { tabIndexRef.current = tabIndex }, [tabIndex])
+
+  // Animate container + pill to the correct tab position
+  const snapTo = (idx, animate) => {
+    if (containerRef.current) {
+      containerRef.current.style.transition = animate
+        ? 'transform 280ms cubic-bezier(0.4,0,0.2,1)'
+        : 'none'
+      containerRef.current.style.transform = `translateX(${-idx * 50}%)`
+    }
   }
 
-  const handleTouchStart = (e) => {
-    touchStartX.current = e.touches[0].clientX
-    touchStartY.current = e.touches[0].clientY
+  // Direct pill position update (called both during drag and on snap)
+  const setPillX = (progress, animate) => {
+    const pill = pillRef.current
+    if (!pill) return
+    const W = window.innerWidth
+    const leftDash = (W - 80) / 4
+    const leftHist = (W - 80) * (3 / 4) + 80
+    const px = leftDash + (leftHist - leftDash) * Math.max(0, Math.min(1, progress))
+    pill.style.transition = animate ? 'left 280ms cubic-bezier(0.4,0,0.2,1)' : 'none'
+    pill.style.left = `${px}px`
   }
 
-  const handleTouchEnd = (e) => {
-    if (touchStartX.current === null) return
-    const dx = e.changedTouches[0].clientX - touchStartX.current
-    const dy = e.changedTouches[0].clientY - touchStartY.current
-    touchStartX.current = null
-    touchStartY.current = null
-    if (Math.abs(dx) < 60 || Math.abs(dx) <= Math.abs(dy) * 1.5) return
-    const onDashboard = location.pathname.startsWith('/dashboard')
-    const onHistory   = location.pathname.startsWith('/history')
-    if (dx < 0 && onDashboard)  triggerSwipeNav('/history')
-    if (dx > 0 && onHistory)    triggerSwipeNav('/dashboard')
-  }
+  // Sync container + pill when tabIndex changes (navigation or back-button)
+  useEffect(() => {
+    const isInit = !containerRef.current?.dataset.initialized
+    snapTo(tabIndex, !isInit)
+    setPillX(tabIndex, !isInit)
+    if (containerRef.current) containerRef.current.dataset.initialized = 'true'
+  }, [tabIndex]) // eslint-disable-line react-hooks/exhaustive-deps
 
-  // Load session summary when end modal opens
+  // ── Touch listeners (non-passive touchmove to allow preventDefault) ────────
+  useEffect(() => {
+    const wrapper = wrapperRef.current
+    if (!wrapper) return
+
+    const onStart = (e) => {
+      touchStartX.current  = e.touches[0].clientX
+      touchStartY.current  = e.touches[0].clientY
+      touchStartMs.current = Date.now()
+      dirLocked.current    = null
+      swipeActive.current  = false
+      // Remove transition so the drag is instant
+      if (containerRef.current) containerRef.current.style.transition = 'none'
+      if (pillRef.current)      pillRef.current.style.transition      = 'none'
+    }
+
+    const onMove = (e) => {
+      const dx = e.touches[0].clientX - touchStartX.current
+      const dy = e.touches[0].clientY - touchStartY.current
+
+      // Lock scroll direction after 8 px of movement
+      if (dirLocked.current === null && (Math.abs(dx) > 8 || Math.abs(dy) > 8)) {
+        dirLocked.current = Math.abs(dx) > Math.abs(dy) * 1.1 ? 'h' : 'v'
+      }
+      if (dirLocked.current !== 'h') return
+
+      e.preventDefault()          // stop vertical scroll during horizontal swipe
+      swipeActive.current = true
+
+      const idx    = tabIndexRef.current
+      const screenW = window.innerWidth
+      // dx → % of the 200%-wide container
+      let dragPct = (dx / screenW) * 50
+
+      // Rubber band at edges (can't swipe past first/last tab)
+      if (dragPct > 0 && idx === 0) dragPct *= 0.12
+      if (dragPct < 0 && idx === 1) dragPct *= 0.12
+
+      const baseX    = -idx * 50
+      const progress = idx + (-dragPct / 50)   // 0 = dashboard, 1 = history
+
+      if (containerRef.current) {
+        containerRef.current.style.transform = `translateX(${baseX + dragPct}%)`
+      }
+      setPillX(progress, false)
+    }
+
+    const onEnd = (e) => {
+      if (!swipeActive.current) {
+        snapTo(tabIndexRef.current, true)
+        setPillX(tabIndexRef.current, true)
+        return
+      }
+
+      const dx       = e.changedTouches[0].clientX - touchStartX.current
+      const dt       = Math.max(Date.now() - touchStartMs.current, 1)
+      const velocity = Math.abs(dx) / dt           // px / ms
+      const screenW  = window.innerWidth
+
+      const DIST_THRESHOLD = screenW * 0.22        // 22 % of screen width
+      const VEL_THRESHOLD  = 0.35                  // px / ms  (fast flick)
+
+      const idx    = tabIndexRef.current
+      let newTab   = idx
+
+      if (dx < 0 && idx === 0 && (Math.abs(dx) > DIST_THRESHOLD || velocity > VEL_THRESHOLD)) newTab = 1
+      if (dx > 0 && idx === 1 && (Math.abs(dx) > DIST_THRESHOLD || velocity > VEL_THRESHOLD)) newTab = 0
+
+      if (newTab !== idx) {
+        // navigate() → tabIndex state changes → useEffect snaps container
+        navigate(newTab === 0 ? '/dashboard' : '/history')
+      } else {
+        snapTo(idx, true)
+        setPillX(idx, true)
+      }
+
+      swipeActive.current = false
+    }
+
+    wrapper.addEventListener('touchstart', onStart, { passive: true  })
+    wrapper.addEventListener('touchmove',  onMove,  { passive: false }) // must be non-passive for preventDefault
+    wrapper.addEventListener('touchend',   onEnd,   { passive: true  })
+
+    return () => {
+      wrapper.removeEventListener('touchstart', onStart)
+      wrapper.removeEventListener('touchmove',  onMove)
+      wrapper.removeEventListener('touchend',   onEnd)
+    }
+  }, [navigate])
+
+  // ── Session helpers ────────────────────────────────────────────────────────
   useEffect(() => {
     if (!showEndModal || !activeSessionId) return
     setEndSessionInfo(null)
-    api.getSession(activeSessionId)
-      .then(s => setEndSessionInfo(s))
-      .catch(() => {})
+    api.getSession(activeSessionId).then(s => setEndSessionInfo(s)).catch(() => {})
   }, [showEndModal])
 
   const fmtElapsed = (startedAt) => {
@@ -114,38 +225,61 @@ export default function MainLayout() {
 
   return (
     <div className="flex flex-col h-full bg-slate-900">
-      <div
-        className="flex-1 overflow-hidden"
-        onTouchStart={handleTouchStart}
-        onTouchEnd={handleTouchEnd}
-        style={{
-          opacity: fadeOut ? 0 : 1,
-          transition: fadeOut ? 'opacity 150ms ease' : 'none',
-        }}
-      >
-        <Outlet />
+
+      {/* ── Main content area ── */}
+      <div className="flex-1 overflow-hidden relative">
+
+        {/* Two-panel swipe container — Dashboard | History, always mounted */}
+        <div
+          ref={wrapperRef}
+          className="absolute inset-0"
+          style={{ display: isTabRoute ? 'block' : 'none' }}
+        >
+          <div
+            ref={containerRef}
+            style={{
+              display:       'flex',
+              width:         '200%',
+              height:        '100%',
+              willChange:    'transform',
+            }}
+          >
+            {/* Panel 0 — Dashboard */}
+            <div style={{ width: '50%', height: '100%', overflowY: 'auto', overflowX: 'hidden' }}>
+              <Dashboard />
+            </div>
+            {/* Panel 1 — History / Progreso */}
+            <div style={{ width: '50%', height: '100%', overflowY: 'auto', overflowX: 'hidden' }}>
+              <History />
+            </div>
+          </div>
+        </div>
+
+        {/* Outlet — only for non-tab routes (Session, Import …) */}
+        {!isTabRoute && <Outlet />}
+
       </div>
 
+      {/* ── Bottom nav ── */}
       <nav
         className="flex-shrink-0 bg-slate-900 border-t border-slate-800 safe-bottom"
         style={{ overflow: 'visible', position: 'relative' }}
       >
-        {/* C: Sliding pill indicator */}
-        <div style={{
-          position: 'absolute',
-          bottom: '7px',
-          left: histActive
-            ? 'calc((100% - 80px) * 3 / 4 + 80px)'
-            : 'calc((100% - 80px) / 4)',
-          transform: 'translateX(-50%)',
-          width: '28px',
-          height: '3px',
-          borderRadius: '9999px',
-          background: '#6366f1',
-          opacity: location.pathname.startsWith('/dashboard') || location.pathname.startsWith('/history') ? 1 : 0,
-          transition: 'left 280ms cubic-bezier(0.4, 0, 0.2, 1), opacity 200ms ease',
-          pointerEvents: 'none',
-        }} />
+        {/* Sliding pill indicator — position driven by JS (setPillX) */}
+        <div
+          ref={pillRef}
+          style={{
+            position:     'absolute',
+            bottom:       '7px',
+            width:        '28px',
+            height:       '3px',
+            borderRadius: '9999px',
+            background:   '#6366f1',
+            opacity:      isTabRoute ? 1 : 0,
+            transform:    'translateX(-50%)',
+            pointerEvents:'none',
+          }}
+        />
 
         <div className="flex items-end h-16">
 
@@ -162,82 +296,55 @@ export default function MainLayout() {
             Dashboard
           </NavLink>
 
-          {/* ── Center session button — always visible ── */}
-          <div
-            className="w-20 flex-shrink-0 flex justify-center"
-            style={{ position: 'relative', height: '64px' }}
-          >
-            {/* Outer wrapper: handles pulse-scale + ring shadow (no overflow:hidden so shadow is visible) */}
+          {/* ── Center session button ── */}
+          <div className="w-20 flex-shrink-0 flex justify-center" style={{ position: 'relative', height: '64px' }}>
             <div
               style={{
-                position: 'absolute',
-                bottom: '12px',
-                width: '64px',
-                height: '64px',
+                position:     'absolute',
+                bottom:       '12px',
+                width:        '64px',
+                height:       '64px',
                 borderRadius: '9999px',
-                animation: activeSessionId
-                  ? 'gym-pulse-active 2s ease-in-out infinite'
-                  : 'none',
+                animation:    activeSessionId ? 'gym-pulse-active 2s ease-in-out infinite' : 'none',
               }}
             >
               <button
                 onClick={handleCenterPress}
                 aria-label={activeSessionId ? 'Rutina activa' : 'Iniciar rutina'}
                 style={{
-                  width: '100%',
-                  height: '100%',
+                  width:        '100%',
+                  height:       '100%',
                   borderRadius: '9999px',
-                  border: '4px solid #0f172a', /* slate-900 */
-                  overflow: 'hidden',
-                  position: 'relative',
-                  display: 'flex',
-                  alignItems: 'center',
+                  border:       '4px solid #0f172a',
+                  overflow:     'hidden',
+                  position:     'relative',
+                  display:      'flex',
+                  alignItems:   'center',
                   justifyContent: 'center',
-                  cursor: 'pointer',
-                  /* Inactive base */
-                  background: activeSessionId ? 'transparent' : '#4f46e5',
-                  boxShadow: activeSessionId
-                    ? 'none'
-                    : '0 4px 20px rgba(99,102,241,0.35)',
-                  transition: 'transform 80ms',
+                  cursor:       'pointer',
+                  background:   activeSessionId ? 'transparent' : '#4f46e5',
+                  boxShadow:    activeSessionId ? 'none' : '0 4px 20px rgba(99,102,241,0.35)',
+                  transition:   'transform 80ms',
                 }}
                 onPointerDown={e => (e.currentTarget.style.transform = 'scale(0.93)')}
-                onPointerUp={e => (e.currentTarget.style.transform = '')}
+                onPointerUp={e   => (e.currentTarget.style.transform = '')}
                 onPointerLeave={e => (e.currentTarget.style.transform = '')}
               >
-                {/* Spinning conic gradient — only when active */}
                 {activeSessionId && (
-                  <div
-                    style={{
-                      position: 'absolute',
-                      width: '220%',
-                      height: '220%',
-                      top: '-60%',
-                      left: '-60%',
-                      background:
-                        'conic-gradient(from 0deg, #047857, #059669, #10b981, #34d399, #6ee7b7, #34d399, #10b981, #059669, #047857)',
-                      animation: 'gym-spin 2s linear infinite',
-                    }}
-                  />
+                  <div style={{
+                    position:   'absolute',
+                    width:      '220%',
+                    height:     '220%',
+                    top:        '-60%',
+                    left:       '-60%',
+                    background: 'conic-gradient(from 0deg, #047857, #059669, #10b981, #34d399, #6ee7b7, #34d399, #10b981, #059669, #047857)',
+                    animation:  'gym-spin 2s linear infinite',
+                  }} />
                 )}
-
-                {/* Slight dark overlay for icon contrast */}
                 {activeSessionId && (
-                  <div
-                    style={{
-                      position: 'absolute',
-                      inset: 0,
-                      background: 'rgba(0,0,0,0.18)',
-                      zIndex: 5,
-                    }}
-                  />
+                  <div style={{ position: 'absolute', inset: 0, background: 'rgba(0,0,0,0.18)', zIndex: 5 }} />
                 )}
-
-                <Activity
-                  size={26}
-                  color="white"
-                  style={{ position: 'relative', zIndex: 10 }}
-                />
+                <Activity size={26} color="white" style={{ position: 'relative', zIndex: 10 }} />
               </button>
             </div>
           </div>
@@ -300,27 +407,18 @@ export default function MainLayout() {
       {/* ── Start session modal ── */}
       {showStartModal && (
         <div className="fixed inset-0 z-50 flex items-end">
-          <div
-            className="absolute inset-0 bg-black/70"
-            onClick={() => !starting && setShowStartModal(false)}
-          />
+          <div className="absolute inset-0 bg-black/70" onClick={() => !starting && setShowStartModal(false)} />
           <div className="relative w-full bg-slate-800 rounded-t-3xl p-6 space-y-5">
             <div className="absolute top-3 left-1/2 -translate-x-1/2 w-10 h-1 bg-slate-600 rounded-full" />
-
             <div className="pt-2 flex items-center gap-4">
               <div className="w-12 h-12 rounded-2xl bg-emerald-500/15 flex items-center justify-center flex-shrink-0">
                 <Activity size={22} className="text-emerald-400" />
               </div>
               <div>
-                <h2 className="text-white font-bold text-lg leading-tight">
-                  ¿Iniciar sesión de hoy?
-                </h2>
-                <p className="text-slate-400 text-sm mt-0.5">
-                  Se registrará como nueva sesión de entrenamiento
-                </p>
+                <h2 className="text-white font-bold text-lg leading-tight">¿Iniciar sesión de hoy?</h2>
+                <p className="text-slate-400 text-sm mt-0.5">Se registrará como nueva sesión de entrenamiento</p>
               </div>
             </div>
-
             <div className="grid grid-cols-2 gap-3">
               <button
                 onClick={() => setShowStartModal(false)}
@@ -340,6 +438,7 @@ export default function MainLayout() {
           </div>
         </div>
       )}
+
     </div>
   )
 }

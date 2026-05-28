@@ -2,6 +2,13 @@ import { X } from 'lucide-react'
 
 const CHANGELOG = [
   {
+    version: '1.5.9',
+    date: '28 may 2026',
+    changes: [
+      'Navegación entre Dashboard y Progreso: deslizamiento horizontal fluido en tiempo real. Ambos paneles siempre montados, la píldora del nav sigue el dedo.',
+    ],
+  },
+  {
     version: '1.5.8',
     date: '27 may 2026',
     changes: [
