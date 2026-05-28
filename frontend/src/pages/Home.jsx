@@ -287,7 +287,7 @@ export default function Home() {
                   </button>
 
                   {openMenu === u.id && (
-                    <div className="absolute right-0 top-full mt-1 bg-slate-700 border border-slate-600 rounded-xl shadow-xl z-30 overflow-hidden min-w-[140px]">
+                    <div className="absolute right-0 top-full mt-1 bg-slate-700 border border-slate-600 rounded-xl shadow-xl z-30 overflow-hidden min-w-[160px]">
                       <button
                         onPointerDown={e => e.stopPropagation()}
                         onClick={() => { setOpenMenu(null); setEditingUser(u) }}
@@ -302,7 +302,7 @@ export default function Home() {
                         className="w-full flex items-center gap-2.5 px-4 py-2.5 text-sm text-slate-300 hover:bg-slate-600 hover:text-white transition-colors"
                       >
                         <Download size={13} />
-                        Exportar CSV
+                        Exportar datos
                       </button>
                       <button
                         onPointerDown={e => e.stopPropagation()}
