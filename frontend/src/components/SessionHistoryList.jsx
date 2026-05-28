@@ -249,8 +249,8 @@ export default function SessionHistoryList({ userId, onDataChanged }) {
     const session = details[sessionId]
     if (!session) return
     const groups = groupByExercise(session.sets)
-    const oldIndex = groups.findIndex(g => g.exercise_id === active.id)
-    const newIndex = groups.findIndex(g => g.exercise_id === over.id)
+    const oldIndex = groups.findIndex(g => `group-${g.exercise_id}` === active.id)
+    const newIndex = groups.findIndex(g => `group-${g.exercise_id}` === over.id)
     if (oldIndex < 0 || newIndex < 0) return
     const newGroups = arrayMove(groups, oldIndex, newIndex)
     const newFlatSets = newGroups.flatMap(g => g.sets)
@@ -355,7 +355,7 @@ export default function SessionHistoryList({ userId, onDataChanged }) {
                     return (
                       <div
                         key={session.id}
-                        className="bg-slate-800 rounded-2xl overflow-hidden row-in"
+                        className="bg-slate-800 rounded-2xl row-in"
                         style={{ animationDelay: `${Math.min(idx, 5) * 45}ms` }}
                       >
                         {/* Session header — edit mode */}
@@ -488,17 +488,18 @@ export default function SessionHistoryList({ userId, onDataChanged }) {
                             ) : (
                               /* Exercise group drag context */
                               <DndContext
+                                id={`exercises-${session.id}`}
                                 sensors={sensors}
                                 collisionDetection={closestCenter}
                                 onDragEnd={handleGroupDragEnd(session.id)}
                               >
                                 <SortableContext
-                                  items={groups.map(g => g.exercise_id)}
+                                  items={groups.map(g => `group-${g.exercise_id}`)}
                                   strategy={verticalListSortingStrategy}
                                 >
                                   <div className="space-y-4">
                                     {groups.map(group => (
-                                      <SortableExerciseGroup key={group.exercise_id} id={group.exercise_id}>
+                                      <SortableExerciseGroup key={group.exercise_id} id={`group-${group.exercise_id}`}>
                                         {({ dragHandleProps }) => (
                                           <div>
                                             {/* Group header with drag handle */}
@@ -518,6 +519,7 @@ export default function SessionHistoryList({ userId, onDataChanged }) {
 
                                             {/* Set rows drag context */}
                                             <DndContext
+                                              id={`sets-${session.id}-${group.exercise_id}`}
                                               sensors={sensors}
                                               collisionDetection={closestCenter}
                                               onDragEnd={handleSetDragEnd(session.id, group.exercise_id)}
@@ -601,7 +603,7 @@ export default function SessionHistoryList({ userId, onDataChanged }) {
                                                                   <MoreHorizontal size={14} />
                                                                 </button>
                                                                 {openMenu === `set_${set.id}` && (
-                                                                  <div className="absolute right-0 top-full mt-1 bg-slate-700 border border-slate-600 rounded-xl shadow-xl z-30 overflow-hidden min-w-[110px]">
+                                                                  <div className="absolute right-0 bottom-full mb-1 bg-slate-700 border border-slate-600 rounded-xl shadow-xl z-30 overflow-hidden min-w-[110px]">
                                                                     <button
                                                                       onPointerDown={e => e.stopPropagation()}
                                                                       onClick={() => startEdit(set)}

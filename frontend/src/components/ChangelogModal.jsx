@@ -2,6 +2,14 @@ import { X } from 'lucide-react'
 
 const CHANGELOG = [
   {
+    version: '1.6.1',
+    date: '28 may 2026',
+    changes: [
+      'Fixed: Reordenación de ejercicios en el histórico (drag & drop)',
+      'Fixed: Menú de serie visible en el último ejercicio de la sesión',
+    ],
+  },
+  {
     version: '1.6.0',
     date: '28 may 2026',
     changes: [
