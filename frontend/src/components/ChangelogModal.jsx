@@ -3,6 +3,17 @@ import BottomSheet from './BottomSheet'
 
 const CHANGELOG = [
   {
+    version: '1.6.4',
+    date: '28 may 2026',
+    changes: [
+      'Fixed: Reordenación de ejercicios (colisión ahora ignora IDs de series anidadas)',
+      'Fixed: Hueco visible al abrir paneles por la animación elástica',
+      'Mejora: Elasticidad reducida en la animación de entrada de los paneles',
+      'Mejora: Sesiones del histórico permanecen abiertas de forma independiente',
+      'Mejora: Animación de apertura suave al expandir una sesión',
+    ],
+  },
+  {
     version: '1.6.3',
     date: '28 may 2026',
     changes: [

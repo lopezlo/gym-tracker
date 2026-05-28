@@ -40,7 +40,7 @@ export default function BottomSheet({ onClose, locked = false, className = '', c
     let raf2
     const raf1 = requestAnimationFrame(() => {
       raf2 = requestAnimationFrame(() => {
-        sheet.style.transition    = 'transform 440ms cubic-bezier(0.34, 1.56, 0.64, 1)'
+        sheet.style.transition    = 'transform 440ms cubic-bezier(0.34, 1.2, 0.64, 1)'
         sheet.style.transform     = 'translateY(0)'
         backdrop.style.transition = 'opacity 280ms'
         backdrop.style.opacity    = '1'
@@ -156,7 +156,7 @@ export default function BottomSheet({ onClose, locked = false, className = '', c
         animateOutRef.current()
       } else {
         // Snap back with spring
-        sheet.style.transition = 'transform 420ms cubic-bezier(0.34, 1.56, 0.64, 1)'
+        sheet.style.transition = 'transform 420ms cubic-bezier(0.34, 1.2, 0.64, 1)'
         sheet.style.transform  = 'translateY(0)'
         if (backdrop) {
           backdrop.style.transition = 'opacity 280ms'
@@ -198,6 +198,9 @@ export default function BottomSheet({ onClose, locked = false, className = '', c
         </div>
 
         {typeof children === 'function' ? children({ dismiss }) : children}
+
+        {/* Background extension: hides the gap that appears during the spring overshoot */}
+        <div className="absolute inset-x-0 -bottom-16 h-16 bg-slate-800 pointer-events-none" aria-hidden="true" />
       </div>
     </div>
   )

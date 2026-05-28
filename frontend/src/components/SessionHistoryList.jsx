@@ -9,6 +9,16 @@ import {
 import {
   DndContext, closestCenter, PointerSensor, useSensor, useSensors,
 } from '@dnd-kit/core'
+
+// Custom collision that filters out set-level droppables registered by nested DndContexts.
+// Without this, closestCenter can land on a set ID instead of a group-* ID → newIndex = -1 → snap back.
+const groupOnlyClosestCenter = (args) =>
+  closestCenter({
+    ...args,
+    droppableContainers: args.droppableContainers.filter(
+      c => typeof c.id === 'string' && c.id.startsWith('group-')
+    ),
+  })
 import {
   SortableContext, verticalListSortingStrategy,
   useSortable, arrayMove,
@@ -73,10 +83,8 @@ function toUTCString(dateStr, timeStr) {
 function SortableExerciseGroup({ id, children }) {
   const { attributes, listeners, setNodeRef, transform, transition, isDragging } = useSortable({ id })
   return (
-    // Transform on the outer wrapper → entire group (header + sets) moves as a unit
-    // setNodeRef passed to children so it lands on the HEADER ONLY →
-    // dnd-kit measures just the header for collision detection (avoids tall-block confusion)
     <div
+      ref={setNodeRef}
       style={{
         transform: CSS.Transform.toString(transform),
         transition,
@@ -85,7 +93,7 @@ function SortableExerciseGroup({ id, children }) {
         zIndex:   isDragging ? 10 : 1,
       }}
     >
-      {children({ dragHandleProps: { ...attributes, ...listeners }, headerRef: setNodeRef })}
+      {children({ dragHandleProps: { ...attributes, ...listeners } })}
     </div>
   )
 }
@@ -110,7 +118,7 @@ function SortableSetRow({ id, children }) {
 
 export default function SessionHistoryList({ userId, onDataChanged }) {
   const [sessions, setSessions] = useState(() => _sessionsCache[userId] ?? [])
-  const [expanded, setExpanded] = useState(null)
+  const [expanded, setExpanded] = useState(() => new Set())
   const [details, setDetails] = useState({})
   const [editingSet, setEditingSet] = useState(null)
   const [editValues, setEditValues] = useState({})
@@ -146,8 +154,12 @@ export default function SessionHistoryList({ userId, onDataChanged }) {
   }, [openMenu])
 
   const toggleExpand = async (id) => {
-    if (expanded === id) { setExpanded(null); return }
-    setExpanded(id)
+    setExpanded(prev => {
+      const next = new Set(prev)
+      if (next.has(id)) { next.delete(id); return next }
+      next.add(id)
+      return next
+    })
     if (!details[id]) {
       const d = await api.getSession(id)
       setDetails(prev => ({ ...prev, [id]: d }))
@@ -239,7 +251,7 @@ export default function SessionHistoryList({ userId, onDataChanged }) {
   const deleteSession = async (sessionId) => {
     await api.deleteSession(sessionId)
     setSessions(prev => prev.filter(s => s.id !== sessionId))
-    if (expanded === sessionId) setExpanded(null)
+    setExpanded(prev => { const next = new Set(prev); next.delete(sessionId); return next })
     setDetails(prev => { const d = { ...prev }; delete d[sessionId]; return d })
     onDataChanged?.()
   }
@@ -348,7 +360,7 @@ export default function SessionHistoryList({ userId, onDataChanged }) {
               {isExpanded && (
                 <div className="space-y-2">
                   {yearSessions.map((session, idx) => {
-                    const isOpen = expanded === session.id
+                    const isOpen = expanded.has(session.id)
                     const isEditingThis = editingSession === session.id
                     const detail = details[session.id]
                     const groups = detail ? groupByExercise(detail.sets) : []
@@ -483,7 +495,7 @@ export default function SessionHistoryList({ userId, onDataChanged }) {
 
                         {/* Expanded sets */}
                         {isOpen && !isEditingThis && (
-                          <div className="px-4 pb-4 border-t border-slate-700/50 pt-3 space-y-4">
+                          <div className="px-4 pb-4 border-t border-slate-700/50 pt-3 space-y-4 session-expand">
                             {!detail ? (
                               <div className="h-10 bg-slate-700 rounded-xl animate-pulse" />
                             ) : groups.length === 0 ? (
@@ -493,7 +505,7 @@ export default function SessionHistoryList({ userId, onDataChanged }) {
                               <DndContext
                                 id={`exercises-${session.id}`}
                                 sensors={sensors}
-                                collisionDetection={closestCenter}
+                                collisionDetection={groupOnlyClosestCenter}
                                 onDragEnd={handleGroupDragEnd(session.id)}
                               >
                                 <SortableContext
@@ -503,10 +515,9 @@ export default function SessionHistoryList({ userId, onDataChanged }) {
                                   <div className="space-y-4">
                                     {groups.map(group => (
                                       <SortableExerciseGroup key={group.exercise_id} id={`group-${group.exercise_id}`}>
-                                        {({ dragHandleProps, headerRef }) => (
+                                        {({ dragHandleProps }) => (
                                           <div>
-                                            {/* Group header — ref here so dnd-kit only measures the header */}
-                                            <div ref={headerRef} className="flex items-center gap-2 mb-2">
+                                            <div className="flex items-center gap-2 mb-2">
                                               <button
                                                 {...dragHandleProps}
                                                 className="text-slate-700 hover:text-slate-500 transition-colors cursor-grab active:cursor-grabbing touch-none"
