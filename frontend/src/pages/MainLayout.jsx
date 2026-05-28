@@ -5,6 +5,7 @@ import { useApp } from '../context/AppContext'
 import { api } from '../api/client'
 import Dashboard from './Dashboard'
 import History from './History'
+import BottomSheet from '../components/BottomSheet'
 
 const COLORS = ['bg-indigo-500', 'bg-violet-500', 'bg-pink-500', 'bg-emerald-500', 'bg-amber-500', 'bg-sky-500', 'bg-rose-500', 'bg-teal-500']
 const colorFor  = (id)   => COLORS[id % COLORS.length]
@@ -382,68 +383,74 @@ export default function MainLayout() {
 
       {/* ── End session modal ── */}
       {showEndModal && (
-        <div className="fixed inset-0 z-50 flex items-end">
-          <div className="absolute inset-0 bg-black/70" onClick={() => !ending && setShowEndModal(false)} />
-          <div className="relative w-full bg-slate-800 rounded-t-3xl p-6 space-y-5">
-            <div className="absolute top-3 left-1/2 -translate-x-1/2 w-10 h-1 bg-slate-600 rounded-full" />
-            <div className="pt-2 flex items-center gap-4">
-              <div className="w-12 h-12 rounded-2xl bg-red-500/15 flex items-center justify-center flex-shrink-0">
-                <Activity size={22} className="text-red-400" />
+        <BottomSheet
+          onClose={() => { setShowEndModal(false); setEndSessionInfo(null) }}
+          locked={ending}
+        >
+          {() => (
+            <div className="px-6 pb-6 pt-2 space-y-5">
+              <div className="flex items-center gap-4">
+                <div className="w-12 h-12 rounded-2xl bg-red-500/15 flex items-center justify-center flex-shrink-0">
+                  <Activity size={22} className="text-red-400" />
+                </div>
+                <div>
+                  <h2 className="text-white font-bold text-lg leading-tight">¿Finalizar sesión?</h2>
+                  <p className="text-slate-400 text-sm mt-0.5">
+                    {endSessionInfo
+                      ? `${fmtElapsed(endSessionInfo.started_at)} · ${endSessionInfo.sets?.length ?? 0} serie${(endSessionInfo.sets?.length ?? 0) !== 1 ? 's' : ''}`
+                      : '…'}
+                  </p>
+                </div>
               </div>
-              <div>
-                <h2 className="text-white font-bold text-lg leading-tight">¿Finalizar sesión?</h2>
-                <p className="text-slate-400 text-sm mt-0.5">
-                  {endSessionInfo
-                    ? `${fmtElapsed(endSessionInfo.started_at)} · ${endSessionInfo.sets?.length ?? 0} serie${(endSessionInfo.sets?.length ?? 0) !== 1 ? 's' : ''}`
-                    : '…'}
-                </p>
+              <div className="grid grid-cols-2 gap-3">
+                <button
+                  onClick={() => { setShowEndModal(false); setEndSessionInfo(null); navigate(`/session/${activeSessionId}`) }}
+                  disabled={ending}
+                  className="py-3.5 bg-slate-700 hover:bg-slate-600 disabled:opacity-50 text-white rounded-xl font-semibold transition-colors"
+                >Seguir</button>
+                <button
+                  onClick={handleEndSession}
+                  disabled={ending}
+                  className="py-3.5 bg-red-600 hover:bg-red-500 disabled:opacity-60 text-white rounded-xl font-semibold transition-colors"
+                >{ending ? 'Finalizando…' : 'Finalizar'}</button>
               </div>
             </div>
-            <div className="grid grid-cols-2 gap-3">
-              <button
-                onClick={() => { setShowEndModal(false); setEndSessionInfo(null); navigate(`/session/${activeSessionId}`) }}
-                disabled={ending}
-                className="py-3.5 bg-slate-700 hover:bg-slate-600 disabled:opacity-50 text-white rounded-xl font-semibold transition-colors"
-              >Seguir</button>
-              <button
-                onClick={handleEndSession}
-                disabled={ending}
-                className="py-3.5 bg-red-600 hover:bg-red-500 disabled:opacity-60 text-white rounded-xl font-semibold transition-colors"
-              >{ending ? 'Finalizando…' : 'Finalizar'}</button>
-            </div>
-          </div>
-        </div>
+          )}
+        </BottomSheet>
       )}
 
       {/* ── Start session modal ── */}
       {showStartModal && (
-        <div className="fixed inset-0 z-50 flex items-end">
-          <div className="absolute inset-0 bg-black/70" onClick={() => !starting && setShowStartModal(false)} />
-          <div className="relative w-full bg-slate-800 rounded-t-3xl p-6 space-y-5">
-            <div className="absolute top-3 left-1/2 -translate-x-1/2 w-10 h-1 bg-slate-600 rounded-full" />
-            <div className="pt-2 flex items-center gap-4">
-              <div className="w-12 h-12 rounded-2xl bg-emerald-500/15 flex items-center justify-center flex-shrink-0">
-                <Activity size={22} className="text-emerald-400" />
+        <BottomSheet
+          onClose={() => setShowStartModal(false)}
+          locked={starting}
+        >
+          {() => (
+            <div className="px-6 pb-6 pt-2 space-y-5">
+              <div className="flex items-center gap-4">
+                <div className="w-12 h-12 rounded-2xl bg-emerald-500/15 flex items-center justify-center flex-shrink-0">
+                  <Activity size={22} className="text-emerald-400" />
+                </div>
+                <div>
+                  <h2 className="text-white font-bold text-lg leading-tight">¿Iniciar sesión de hoy?</h2>
+                  <p className="text-slate-400 text-sm mt-0.5">Se registrará como nueva sesión de entrenamiento</p>
+                </div>
               </div>
-              <div>
-                <h2 className="text-white font-bold text-lg leading-tight">¿Iniciar sesión de hoy?</h2>
-                <p className="text-slate-400 text-sm mt-0.5">Se registrará como nueva sesión de entrenamiento</p>
+              <div className="grid grid-cols-2 gap-3">
+                <button
+                  onClick={() => setShowStartModal(false)}
+                  disabled={starting}
+                  className="py-3.5 bg-slate-700 hover:bg-slate-600 disabled:opacity-50 text-white rounded-xl font-semibold transition-colors"
+                >Cancelar</button>
+                <button
+                  onClick={handleStartSession}
+                  disabled={starting}
+                  className="py-3.5 bg-emerald-600 hover:bg-emerald-500 disabled:opacity-60 text-white rounded-xl font-semibold transition-colors"
+                >{starting ? 'Iniciando…' : 'Empezar'}</button>
               </div>
             </div>
-            <div className="grid grid-cols-2 gap-3">
-              <button
-                onClick={() => setShowStartModal(false)}
-                disabled={starting}
-                className="py-3.5 bg-slate-700 hover:bg-slate-600 disabled:opacity-50 text-white rounded-xl font-semibold transition-colors"
-              >Cancelar</button>
-              <button
-                onClick={handleStartSession}
-                disabled={starting}
-                className="py-3.5 bg-emerald-600 hover:bg-emerald-500 disabled:opacity-60 text-white rounded-xl font-semibold transition-colors"
-              >{starting ? 'Iniciando…' : 'Empezar'}</button>
-            </div>
-          </div>
-        </div>
+          )}
+        </BottomSheet>
       )}
 
     </div>

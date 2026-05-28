@@ -1,6 +1,16 @@
 import { X } from 'lucide-react'
+import BottomSheet from './BottomSheet'
 
 const CHANGELOG = [
+  {
+    version: '1.6.2',
+    date: '28 may 2026',
+    changes: [
+      'Nuevo: Animación de entrada elástica en los paneles',
+      'Nuevo: Arrastrar el asa para cerrar los paneles',
+      'Fixed: Paneles a ancho completo en escritorio',
+    ],
+  },
   {
     version: '1.6.1',
     date: '28 may 2026',
@@ -156,40 +166,38 @@ const CHANGELOG = [
 
 export default function ChangelogModal({ onClose }) {
   return (
-    <div className="fixed inset-0 z-50 flex items-end">
-      <div className="absolute inset-0 bg-black/70" onClick={onClose} />
-      <div className="relative w-full bg-slate-800 rounded-t-3xl max-h-[82vh] flex flex-col">
-        <div className="flex justify-center pt-3 pb-1 flex-shrink-0">
-          <div className="w-10 h-1 bg-slate-600 rounded-full" />
-        </div>
-        <div className="px-4 pb-2 flex items-center justify-between flex-shrink-0">
-          <h2 className="text-white font-bold text-lg">Novedades</h2>
-          <button onClick={onClose} className="p-2 text-slate-500 hover:text-white transition-colors">
-            <X size={20} />
-          </button>
-        </div>
-        <div className="flex-1 overflow-y-auto px-4 pb-10 space-y-6">
-          {CHANGELOG.map(v => (
-            <div key={v.version}>
-              <div className="flex items-center gap-2 mb-2">
-                <span className="text-indigo-400 font-bold text-sm">v{v.version}</span>
-                <span className="text-slate-600 text-xs">{v.date}</span>
-                {v.version === __APP_VERSION__ && (
-                  <span className="text-[10px] bg-indigo-500/20 text-indigo-400 px-2 py-0.5 rounded-full font-medium">actual</span>
-                )}
+    <BottomSheet onClose={onClose} className="max-h-[82vh] flex flex-col">
+      {({ dismiss }) => (
+        <>
+          <div className="px-4 pb-2 flex items-center justify-between flex-shrink-0">
+            <h2 className="text-white font-bold text-lg">Novedades</h2>
+            <button onClick={dismiss} className="p-2 text-slate-500 hover:text-white transition-colors">
+              <X size={20} />
+            </button>
+          </div>
+          <div className="flex-1 overflow-y-auto px-4 pb-10 space-y-6">
+            {CHANGELOG.map(v => (
+              <div key={v.version}>
+                <div className="flex items-center gap-2 mb-2">
+                  <span className="text-indigo-400 font-bold text-sm">v{v.version}</span>
+                  <span className="text-slate-600 text-xs">{v.date}</span>
+                  {v.version === __APP_VERSION__ && (
+                    <span className="text-[10px] bg-indigo-500/20 text-indigo-400 px-2 py-0.5 rounded-full font-medium">actual</span>
+                  )}
+                </div>
+                <ul className="space-y-1.5">
+                  {v.changes.map((c, i) => (
+                    <li key={i} className="flex items-start gap-2 text-sm text-slate-300">
+                      <span className="text-slate-600 mt-0.5 flex-shrink-0 select-none">·</span>
+                      <span>{c}</span>
+                    </li>
+                  ))}
+                </ul>
               </div>
-              <ul className="space-y-1.5">
-                {v.changes.map((c, i) => (
-                  <li key={i} className="flex items-start gap-2 text-sm text-slate-300">
-                    <span className="text-slate-600 mt-0.5 flex-shrink-0 select-none">·</span>
-                    <span>{c}</span>
-                  </li>
-                ))}
-              </ul>
-            </div>
-          ))}
-        </div>
-      </div>
-    </div>
+            ))}
+          </div>
+        </>
+      )}
+    </BottomSheet>
   )
 }

@@ -4,6 +4,7 @@ import { Plus, Trash2, Dumbbell, Download, AlertTriangle, X, Camera } from 'luci
 import { api } from '../api/client'
 import { useApp } from '../context/AppContext'
 import ChangelogModal from '../components/ChangelogModal'
+import BottomSheet from '../components/BottomSheet'
 
 function DeleteModal({ user, onConfirm, onCancel }) {
   const [downloaded, setDownloaded] = useState(false)
@@ -16,60 +17,59 @@ function DeleteModal({ user, onConfirm, onCancel }) {
   }
 
   return (
-    <div className="fixed inset-0 z-50 flex items-end">
-      <div className="absolute inset-0 bg-black/70" onClick={onCancel} />
-      <div className="relative w-full bg-slate-800 rounded-t-3xl p-6 space-y-5">
-        <div className="absolute top-3 left-1/2 -translate-x-1/2 w-10 h-1 bg-slate-600 rounded-full" />
-
-        <div className="flex items-start gap-3 pt-2">
-          <div className="w-10 h-10 rounded-xl bg-red-500/20 flex items-center justify-center flex-shrink-0">
-            <AlertTriangle size={20} className="text-red-400" />
+    <BottomSheet onClose={onCancel}>
+      {() => (
+        <div className="px-6 pb-6 pt-2 space-y-5">
+          <div className="flex items-start gap-3">
+            <div className="w-10 h-10 rounded-xl bg-red-500/20 flex items-center justify-center flex-shrink-0">
+              <AlertTriangle size={20} className="text-red-400" />
+            </div>
+            <div>
+              <h2 className="text-white font-bold text-lg leading-tight">Eliminar {user.name}</h2>
+              <p className="text-slate-400 text-sm mt-1">
+                Se eliminarán todas las sesiones y datos de entrenamiento. Esta acción no se puede deshacer.
+              </p>
+            </div>
           </div>
-          <div>
-            <h2 className="text-white font-bold text-lg leading-tight">Eliminar {user.name}</h2>
-            <p className="text-slate-400 text-sm mt-1">
-              Se eliminarán todas las sesiones y datos de entrenamiento. Esta acción no se puede deshacer.
-            </p>
+
+          <button
+            onClick={handleDownload}
+            className={`w-full flex items-center gap-3 rounded-2xl px-4 py-3.5 transition-all ${
+              downloaded
+                ? 'bg-emerald-500/10 border border-emerald-500/40 text-emerald-400'
+                : 'bg-slate-700 hover:bg-slate-600 text-white'
+            }`}
+          >
+            <Download size={18} className={downloaded ? 'text-emerald-400' : 'text-indigo-400'} />
+            <div className="text-left">
+              <p className="font-semibold text-sm">
+                {downloaded ? 'CSV descargado ✓' : 'Descargar datos en CSV'}
+              </p>
+              <p className={`text-xs mt-0.5 ${downloaded ? 'text-emerald-500/70' : 'text-slate-400'}`}>
+                {downloaded ? 'Ya puedes eliminar la cuenta' : 'Guarda un respaldo antes de eliminar'}
+              </p>
+            </div>
+          </button>
+
+          <div className="grid grid-cols-2 gap-3">
+            <button
+              onClick={onCancel}
+              className="flex items-center justify-center gap-2 py-3.5 bg-slate-700 hover:bg-slate-600 text-white rounded-xl font-semibold transition-colors"
+            >
+              <X size={16} />
+              Cancelar
+            </button>
+            <button
+              onClick={onConfirm}
+              className="flex items-center justify-center gap-2 py-3.5 bg-red-600 hover:bg-red-500 text-white rounded-xl font-semibold transition-colors"
+            >
+              <Trash2 size={16} />
+              Eliminar
+            </button>
           </div>
         </div>
-
-        <button
-          onClick={handleDownload}
-          className={`w-full flex items-center gap-3 rounded-2xl px-4 py-3.5 transition-all ${
-            downloaded
-              ? 'bg-emerald-500/10 border border-emerald-500/40 text-emerald-400'
-              : 'bg-slate-700 hover:bg-slate-600 text-white'
-          }`}
-        >
-          <Download size={18} className={downloaded ? 'text-emerald-400' : 'text-indigo-400'} />
-          <div className="text-left">
-            <p className="font-semibold text-sm">
-              {downloaded ? 'CSV descargado ✓' : 'Descargar datos en CSV'}
-            </p>
-            <p className={`text-xs mt-0.5 ${downloaded ? 'text-emerald-500/70' : 'text-slate-400'}`}>
-              {downloaded ? 'Ya puedes eliminar la cuenta' : 'Guarda un respaldo antes de eliminar'}
-            </p>
-          </div>
-        </button>
-
-        <div className="grid grid-cols-2 gap-3">
-          <button
-            onClick={onCancel}
-            className="flex items-center justify-center gap-2 py-3.5 bg-slate-700 hover:bg-slate-600 text-white rounded-xl font-semibold transition-colors"
-          >
-            <X size={16} />
-            Cancelar
-          </button>
-          <button
-            onClick={onConfirm}
-            className="flex items-center justify-center gap-2 py-3.5 bg-red-600 hover:bg-red-500 text-white rounded-xl font-semibold transition-colors"
-          >
-            <Trash2 size={16} />
-            Eliminar
-          </button>
-        </div>
-      </div>
-    </div>
+      )}
+    </BottomSheet>
   )
 }
 
@@ -171,7 +171,7 @@ export default function Home() {
   const colorFor = (id) => COLORS[id % COLORS.length]
 
   return (
-    <div className="min-h-screen bg-slate-900 flex flex-col items-center justify-center px-4 py-12">
+    <div className="h-full bg-slate-900 flex flex-col items-center justify-center px-4 py-12 overflow-y-auto">
       <div className="w-full max-w-sm">
         <div className="text-center mb-10">
           <div className="inline-flex items-center justify-center w-16 h-16 rounded-2xl bg-indigo-600 mb-4">
