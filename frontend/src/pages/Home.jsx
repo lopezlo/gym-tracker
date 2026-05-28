@@ -261,7 +261,7 @@ export default function Home() {
             {users.map(u => (
               <div
                 key={u.id}
-                className="flex items-center bg-slate-800 hover:bg-slate-750 rounded-2xl transition-colors"
+                className="flex items-center bg-slate-800 hover:bg-slate-700 rounded-2xl transition-colors"
               >
                 {/* Avatar + name — main tap target */}
                 <button
