@@ -31,12 +31,14 @@ import 'dayjs/locale/es'
 dayjs.locale('es')
 
 function groupByExercise(sets) {
-  const map = {}
+  // Use Map (not plain object) so insertion order is preserved.
+  // Plain objects sort integer keys numerically, which undoes any drag reordering.
+  const map = new Map()
   sets.forEach(s => {
-    if (!map[s.exercise_id]) map[s.exercise_id] = { exercise_id: s.exercise_id, name: s.exercise_name, type: s.exercise_type, sets: [] }
-    map[s.exercise_id].sets.push(s)
+    if (!map.has(s.exercise_id)) map.set(s.exercise_id, { exercise_id: s.exercise_id, name: s.exercise_name, type: s.exercise_type, sets: [] })
+    map.get(s.exercise_id).sets.push(s)
   })
-  return Object.values(map)
+  return [...map.values()]
 }
 
 function fmtSetLabel(s) {

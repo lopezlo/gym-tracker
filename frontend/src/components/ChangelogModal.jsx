@@ -3,6 +3,13 @@ import BottomSheet from './BottomSheet'
 
 const CHANGELOG = [
   {
+    version: '1.6.5',
+    date: '28 may 2026',
+    changes: [
+      'Fixed: Reordenación de ejercicios — orden se guardaba siempre por ID numérico (Map en vez de objeto plano)',
+    ],
+  },
+  {
     version: '1.6.4',
     date: '28 may 2026',
     changes: [
