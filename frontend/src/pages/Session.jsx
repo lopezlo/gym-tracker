@@ -72,7 +72,7 @@ function RestTimer({ lastSetAt }) {
     return () => clearInterval(id)
   }, [lastSetAt, restAlertEnabled, restDuration])
 
-  if (!lastSetAt) return null
+  if (!lastSetAt || !restAlertEnabled) return null
 
   if (restAlertEnabled) {
     const remaining = restDuration - rest
