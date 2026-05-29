@@ -122,7 +122,7 @@ export default function Session() {
   const [newSetId, setNewSetId] = useState(null)
 
   const sessionElapsed = useTimer(session?.started_at)
-  const lastSetAt = sets.length > 0 ? sets[sets.length - 1].recorded_at : null
+  const [timerAnchor, setTimerAnchor] = useState(null)
 
   useEffect(() => {
     api.getSession(id)
@@ -133,6 +133,7 @@ export default function Session() {
         if (data.sets?.length > 0) {
           const last = data.sets[data.sets.length - 1]
           setCurrentExercise({ id: last.exercise_id, name: last.exercise_name, type: last.exercise_type })
+          setTimerAnchor(last.recorded_at)
         }
       })
       .catch(() => {
@@ -183,6 +184,7 @@ export default function Session() {
       }
       const newSet = await api.addSet(id, payload)
       setSets(prev => [...prev, newSet])
+      setTimerAnchor(newSet.recorded_at)
       setNewSetId(newSet.id)
       setTimeout(() => setNewSetId(null), 400)
     } catch (e) { alert(e.message) }
@@ -193,7 +195,9 @@ export default function Session() {
     const setId = confirmDeleteSet
     setConfirmDeleteSet(null)
     await api.deleteSet(id, setId)
-    setSets(prev => prev.filter(s => s.id !== setId))
+    const next = sets.filter(s => s.id !== setId)
+    setSets(next)
+    if (next.length === 0) setTimerAnchor(null)
   }
 
   const handleEnd = async () => {
@@ -279,7 +283,7 @@ export default function Session() {
               <ChevronDown size={18} className="text-slate-400" />
             </button>
 
-            <RestTimer lastSetAt={lastSetAt} />
+            <RestTimer lastSetAt={timerAnchor} />
 
             {/* Previous sets chips */}
             {setsForCurrent.length > 0 && (

@@ -3,6 +3,14 @@ import BottomSheet from './BottomSheet'
 
 const CHANGELOG = [
   {
+    version: '1.7.1',
+    date: '28 may 2026',
+    changes: [
+      'Fixed: Temporizador de descanso se reiniciaba al eliminar una serie — ahora solo desaparece si se eliminan todas',
+      'Fixed: Editar perfil de usuario bloqueado mientras hay una sesión activa (aviso)',
+    ],
+  },
+  {
     version: '1.7.0',
     date: '28 may 2026',
     changes: [

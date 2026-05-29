@@ -183,7 +183,7 @@ function DeleteModal({ user, onConfirm, onCancel }) {
 // ── Main page ──────────────────────────────────────────────────────────────────
 
 export default function Home() {
-  const { selectUser } = useApp()
+  const { selectUser, activeSessionId } = useApp()
   const navigate = useNavigate()
   const [users, setUsers] = useState([])
   const [newName, setNewName] = useState('')
@@ -195,6 +195,7 @@ export default function Home() {
   const [openMenu, setOpenMenu] = useState(null)
   const [showChangelog, setShowChangelog] = useState(false)
   const [pressedUser, setPressedUser] = useState(null)
+  const [blockEditWarning, setBlockEditWarning] = useState(false)
 
   useEffect(() => {
     api.getUsers().then(setUsers).catch(() => {}).finally(() => setLoading(false))
@@ -302,7 +303,7 @@ export default function Home() {
                     <div className="absolute right-0 top-full mt-1 bg-slate-700 border border-slate-600 rounded-xl shadow-xl z-30 overflow-hidden min-w-[160px]">
                       <button
                         onPointerDown={e => e.stopPropagation()}
-                        onClick={() => { setOpenMenu(null); setEditingUser(u) }}
+                        onClick={() => { setOpenMenu(null); activeSessionId ? setBlockEditWarning(true) : setEditingUser(u) }}
                         className="w-full flex items-center gap-2.5 px-4 py-2.5 text-sm text-slate-300 hover:bg-slate-600 hover:text-white transition-colors"
                       >
                         <Edit2 size={13} />
@@ -389,6 +390,32 @@ export default function Home() {
           onConfirm={confirmDelete}
           onCancel={() => setPendingDelete(null)}
         />
+      )}
+
+      {blockEditWarning && (
+        <BottomSheet onClose={() => setBlockEditWarning(false)}>
+          {({ dismiss }) => (
+            <div className="px-6 pb-6 pt-2 space-y-5">
+              <div className="flex items-start gap-3">
+                <div className="w-10 h-10 rounded-xl bg-amber-500/20 flex items-center justify-center flex-shrink-0">
+                  <AlertTriangle size={20} className="text-amber-400" />
+                </div>
+                <div>
+                  <h2 className="text-white font-bold text-lg leading-tight">Sesión activa</h2>
+                  <p className="text-slate-400 text-sm mt-1">
+                    Finaliza tu sesión de entrenamiento antes de editar el perfil.
+                  </p>
+                </div>
+              </div>
+              <button
+                onClick={dismiss}
+                className="w-full py-3.5 bg-slate-700 hover:bg-slate-600 text-white rounded-xl font-semibold transition-colors"
+              >
+                Entendido
+              </button>
+            </div>
+          )}
+        </BottomSheet>
       )}
 
       {editingUser && (
