@@ -3,6 +3,15 @@ import BottomSheet from './BottomSheet'
 
 const CHANGELOG = [
   {
+    version: '1.7.2',
+    date: '29 may 2026',
+    changes: [
+      'Fixed: Cronómetro de sesión mostraba -1:-1 en el primer segundo (desfase reloj servidor/cliente)',
+      'Fixed: Temporizador de descanso mostraba 1s de más al arrancar',
+      'Mejora: Color naranja en el temporizador de descanso solo en los últimos 5s (antes 30s)',
+    ],
+  },
+  {
     version: '1.7.1',
     date: '28 may 2026',
     changes: [

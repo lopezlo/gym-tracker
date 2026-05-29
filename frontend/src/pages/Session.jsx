@@ -25,6 +25,7 @@ function useTimer(startIso) {
 }
 
 function fmtDur(secs) {
+  secs = Math.max(0, secs)
   const h = Math.floor(secs / 3600)
   const m = Math.floor((secs % 3600) / 60)
   const s = secs % 60
@@ -75,9 +76,9 @@ function RestTimer({ lastSetAt }) {
   if (!lastSetAt || !restAlertEnabled) return null
 
   if (restAlertEnabled) {
-    const remaining = restDuration - rest
+    const remaining = restDuration - Math.max(0, rest)
     if (remaining > 0) {
-      const cls = remaining <= 10 ? 'text-red-400' : remaining <= 30 ? 'text-amber-400' : 'text-emerald-400'
+      const cls = remaining <= 5 ? 'text-amber-400' : 'text-emerald-400'
       return (
         <div className="flex items-center gap-1.5 text-slate-400 text-sm">
           <Clock size={13} />
