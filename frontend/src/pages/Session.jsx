@@ -1,6 +1,6 @@
 import { useState, useEffect, useRef, useMemo } from 'react'
 import { useParams, useNavigate } from 'react-router-dom'
-import { Plus, ChevronDown, Trash2, Clock, Dumbbell, CheckCircle } from 'lucide-react'
+import { Plus, Trash2, Clock, Dumbbell, CheckCircle } from 'lucide-react'
 import { api } from '../api/client'
 import { useApp } from '../context/AppContext'
 import ExerciseSelector from '../components/ExerciseSelector'
@@ -8,7 +8,7 @@ import ConfirmModal from '../components/ConfirmModal'
 import BottomSheet from '../components/BottomSheet'
 import dayjs from 'dayjs'
 
-// PostgreSQL returns ISO 8601 with Z/offset; SQLite used space without tz
+// ── Helpers ────────────────────────────────────────────────────────────────────
 const toUTC = (s) => s ? new Date(/Z$|[+-]\d{2}/.test(s) ? s : s.replace(' ', 'T') + 'Z') : null
 
 function useTimer(startIso) {
@@ -16,7 +16,7 @@ function useTimer(startIso) {
   useEffect(() => {
     if (!startIso) return
     const start = toUTC(startIso)
-    const tick = () => setElapsed(Math.floor((Date.now() - start.getTime()) / 1000))
+    const tick = () => setElapsed(Math.max(0, Math.floor((Date.now() - start.getTime()) / 1000)))
     tick()
     const id = setInterval(tick, 1000)
     return () => clearInterval(id)
@@ -33,11 +33,22 @@ function fmtDur(secs) {
   return `${String(m).padStart(2, '0')}:${String(s).padStart(2, '0')}`
 }
 
+function fmtSet(s) {
+  if (s.exercise_type === 'time') {
+    if (!s.duration) return '—'
+    const mins = s.duration / 60
+    return `${Number.isInteger(mins) ? mins : mins.toFixed(1)} min`
+  }
+  const parts = []
+  if (s.weight != null) parts.push(`${s.weight}kg`)
+  if (s.reps != null) parts.push(`×${s.reps}`)
+  return parts.join(' ') || '—'
+}
+
 function playAlert() {
   navigator.vibrate?.([300, 100, 300, 100, 400])
   try {
     const ctx = new (window.AudioContext || window.webkitAudioContext)()
-    // Three ascending beeps: 660 → 880 → 1100 Hz
     ;[[0, 660], [0.45, 880], [0.9, 1100]].forEach(([delay, freq]) => {
       const osc = ctx.createOscillator()
       const gain = ctx.createGain()
@@ -53,11 +64,17 @@ function playAlert() {
   } catch {}
 }
 
+const stepVal = (val, setVal, delta, decimals = false) => setVal(prev => {
+  const v = (decimals ? parseFloat(prev) : parseInt(prev)) || 0
+  const result = Math.max(0, v + delta)
+  return decimals ? String(Math.round(result * 2) / 2) : String(result)
+})
+
+// ── Rest Timer (in header) ─────────────────────────────────────────────────────
 function RestTimer({ lastSetAt }) {
   const [rest, setRest] = useState(0)
   const alertedRef = useRef(false)
 
-  // Re-read settings each time a new set is added
   const { restAlertEnabled = false, restDuration = 90 } = useMemo(() => {
     try { return JSON.parse(localStorage.getItem('gym_settings')) ?? {} } catch { return {} }
   }, [lastSetAt])
@@ -81,55 +98,242 @@ function RestTimer({ lastSetAt }) {
 
   if (!lastSetAt || !restAlertEnabled) return null
 
-  if (restAlertEnabled) {
-    const remaining = restDuration - Math.max(0, rest)
-    if (remaining > 0) {
-      const cls = remaining <= 5 ? 'text-amber-400' : 'text-emerald-400'
-      return (
-        <div className="flex items-center gap-1.5 text-slate-400 text-sm">
-          <Clock size={13} />
-          <span>Descanso: <span className={`font-mono font-semibold ${cls}`}>{fmtDur(remaining)}</span></span>
-        </div>
-      )
-    }
+  const remaining = restDuration - Math.max(0, rest)
+  if (remaining > 0) {
+    const cls = remaining <= 5 ? 'text-amber-400' : 'text-emerald-400'
     return (
-      <div className="flex items-center gap-1.5 text-sm">
-        <Clock size={13} className="text-red-400" />
-        <span className="text-red-400 font-semibold">¡A por ello!</span>
-        <span className="text-slate-500 text-xs font-mono ml-1">+{fmtDur(-remaining)}</span>
+      <div className="flex items-center gap-1.5 text-slate-400 text-sm mt-1">
+        <Clock size={13} />
+        <span>Descanso: <span className={`font-mono font-semibold ${cls}`}>{fmtDur(remaining)}</span></span>
       </div>
     )
   }
-
   return (
-    <div className="flex items-center gap-1.5 text-slate-400 text-sm">
-      <Clock size={13} />
-      <span>Descanso: <span className={`font-mono font-semibold ${rest > 120 ? 'text-amber-400' : 'text-emerald-400'}`}>{fmtDur(rest)}</span></span>
+    <div className="flex items-center gap-1.5 text-sm mt-1">
+      <Clock size={13} className="text-red-400" />
+      <span className="text-red-400 font-semibold">¡A por ello!</span>
+      <span className="text-slate-500 text-xs font-mono ml-1">+{fmtDur(-remaining)}</span>
     </div>
   )
 }
 
+// ── Exercise Card ──────────────────────────────────────────────────────────────
+function ExerciseCard({ exId, group, onAddSet, onDeleteSet, newSetId }) {
+  return (
+    <div className="bg-slate-800 rounded-2xl p-4">
+      {/* Header */}
+      <div className="flex items-center gap-2 mb-3">
+        {group.type === 'time'
+          ? <Clock size={14} className="text-amber-400 flex-shrink-0" />
+          : <Dumbbell size={14} className="text-indigo-400 flex-shrink-0" />}
+        <h4 className="text-white font-semibold text-sm flex-1 truncate">{group.name}</h4>
+        <span className="text-slate-500 text-xs flex-shrink-0">
+          {group.sets.length} serie{group.sets.length !== 1 ? 's' : ''}
+        </span>
+      </div>
+
+      {/* Set rows */}
+      <div className="space-y-1.5 mb-3">
+        {group.sets.map((s, i) => (
+          <div
+            key={s.id}
+            className={`flex items-center gap-3 py-0.5 ${s.id === newSetId ? 'set-pop' : ''}`}
+          >
+            <span className="text-slate-500 text-xs w-4 text-right flex-shrink-0">{i + 1}</span>
+            <span className="text-white font-mono text-sm flex-1">{fmtSet(s)}</span>
+            <span className="text-slate-600 text-xs">{dayjs(toUTC(s.recorded_at)).format('HH:mm')}</span>
+            <button
+              onClick={() => onDeleteSet(s.id)}
+              className="p-1 text-slate-600 hover:text-red-400 transition-colors"
+            >
+              <Trash2 size={14} />
+            </button>
+          </div>
+        ))}
+      </div>
+
+      {/* + Serie button */}
+      <button
+        onClick={onAddSet}
+        className="w-full flex items-center justify-center gap-1.5 py-2 rounded-xl border border-dashed border-slate-600 hover:border-indigo-500 hover:bg-indigo-500/10 text-slate-500 hover:text-indigo-400 active:bg-indigo-500/20 transition-colors text-sm"
+      >
+        <Plus size={14} />
+        Serie
+      </button>
+    </div>
+  )
+}
+
+// ── Add Set Sheet ──────────────────────────────────────────────────────────────
+function AddSetSheet({ exercise, sessionId, sessionSets, onAdded, onClose }) {
+  const { user } = useApp()
+  const [weight, setWeight]     = useState('')
+  const [reps, setReps]         = useState('')
+  const [duration, setDuration] = useState('')
+  const [adding, setAdding]     = useState(false)
+
+  const setsForEx = sessionSets.filter(s => s.exercise_id === exercise.id)
+
+  // Pre-fill from last set of this exercise
+  useEffect(() => {
+    const lastInSession = [...setsForEx].reverse()[0]
+    if (lastInSession) {
+      if (exercise.type === 'reps') {
+        setWeight(lastInSession.weight != null ? String(lastInSession.weight) : '')
+        setReps(lastInSession.reps != null ? String(lastInSession.reps) : '')
+      } else {
+        setDuration(lastInSession.duration != null ? String(lastInSession.duration / 60) : '')
+      }
+    } else {
+      api.getLastSet(exercise.id, user.id).then(last => {
+        if (!last) return
+        if (exercise.type === 'reps') {
+          setWeight(last.weight != null ? String(last.weight) : '')
+          setReps(last.reps != null ? String(last.reps) : '')
+        } else {
+          setDuration(last.duration != null ? String(last.duration / 60) : '')
+        }
+      }).catch(() => {})
+    }
+  }, [exercise.id])
+
+  const handleAdd = async () => {
+    setAdding(true)
+    try {
+      const payload = { exercise_id: exercise.id }
+      if (exercise.type === 'reps') {
+        if (weight)   payload.weight   = parseFloat(weight)
+        if (reps)     payload.reps     = parseInt(reps)
+      } else {
+        if (duration) payload.duration = Math.round(parseFloat(duration) * 60)
+      }
+      const newSet = await api.addSet(sessionId, payload)
+      onAdded(newSet)
+    } catch (e) { alert(e.message); setAdding(false) }
+  }
+
+  return (
+    <BottomSheet onClose={onClose} locked={adding}>
+      {() => (
+        <div className="px-5 pb-8 pt-2 space-y-4">
+          {/* Title */}
+          <div className="flex items-center gap-2.5">
+            {exercise.type === 'time'
+              ? <Clock size={16} className="text-amber-400 flex-shrink-0" />
+              : <Dumbbell size={16} className="text-indigo-400 flex-shrink-0" />}
+            <h2 className="text-white font-bold text-base flex-1 truncate">{exercise.name}</h2>
+            <span className="text-slate-500 text-sm flex-shrink-0">
+              Serie {setsForEx.length + 1}
+            </span>
+          </div>
+
+          {/* Previous sets chips (reference) */}
+          {setsForEx.length > 0 && (
+            <div className="flex flex-wrap gap-1.5">
+              {setsForEx.map((s, i) => (
+                <span
+                  key={s.id}
+                  className="text-xs bg-slate-700 text-slate-400 rounded-lg px-2.5 py-1.5 font-mono"
+                >
+                  {i + 1}. {fmtSet(s)}
+                </span>
+              ))}
+            </div>
+          )}
+
+          {/* Inputs */}
+          {exercise.type === 'reps' ? (
+            <div className="grid grid-cols-2 gap-3">
+              <div className="space-y-1.5">
+                <label className="text-xs text-slate-400 font-medium">Peso (kg)</label>
+                <div className="flex items-center gap-1">
+                  <button
+                    onClick={() => stepVal(weight, setWeight, -2.5, true)}
+                    className="w-9 h-9 bg-slate-700 hover:bg-slate-600 rounded-lg text-white font-bold flex-shrink-0 transition-colors"
+                  >−</button>
+                  <input
+                    type="number" inputMode="decimal" value={weight}
+                    onChange={e => setWeight(e.target.value)} placeholder="0"
+                    className="flex-1 bg-slate-700 text-white text-center rounded-lg py-2.5 outline-none focus:ring-2 focus:ring-indigo-500 text-sm font-semibold w-0"
+                  />
+                  <button
+                    onClick={() => stepVal(weight, setWeight, 2.5, true)}
+                    className="w-9 h-9 bg-slate-700 hover:bg-slate-600 rounded-lg text-white font-bold flex-shrink-0 transition-colors"
+                  >+</button>
+                </div>
+              </div>
+              <div className="space-y-1.5">
+                <label className="text-xs text-slate-400 font-medium">Repeticiones</label>
+                <div className="flex items-center gap-1">
+                  <button
+                    onClick={() => stepVal(reps, setReps, -1)}
+                    className="w-9 h-9 bg-slate-700 hover:bg-slate-600 rounded-lg text-white font-bold flex-shrink-0 transition-colors"
+                  >−</button>
+                  <input
+                    type="number" inputMode="numeric" value={reps}
+                    onChange={e => setReps(e.target.value)} placeholder="0"
+                    className="flex-1 bg-slate-700 text-white text-center rounded-lg py-2.5 outline-none focus:ring-2 focus:ring-indigo-500 text-sm font-semibold w-0"
+                  />
+                  <button
+                    onClick={() => stepVal(reps, setReps, 1)}
+                    className="w-9 h-9 bg-slate-700 hover:bg-slate-600 rounded-lg text-white font-bold flex-shrink-0 transition-colors"
+                  >+</button>
+                </div>
+              </div>
+            </div>
+          ) : (
+            <div className="space-y-1.5">
+              <label className="text-xs text-slate-400 font-medium">Duración (min)</label>
+              <div className="flex items-center gap-2">
+                <button
+                  onClick={() => stepVal(duration, setDuration, -0.5, true)}
+                  className="w-10 h-10 bg-slate-700 hover:bg-slate-600 rounded-xl text-white font-bold flex-shrink-0 transition-colors"
+                >−</button>
+                <input
+                  type="number" inputMode="decimal" value={duration}
+                  onChange={e => setDuration(e.target.value)} placeholder="0" step="0.5"
+                  className="flex-1 min-w-0 w-0 bg-slate-700 text-white text-center rounded-xl py-2.5 outline-none focus:ring-2 focus:ring-amber-500 text-lg font-bold"
+                />
+                <button
+                  onClick={() => stepVal(duration, setDuration, 0.5, true)}
+                  className="w-10 h-10 bg-slate-700 hover:bg-slate-600 rounded-xl text-white font-bold flex-shrink-0 transition-colors"
+                >+</button>
+              </div>
+            </div>
+          )}
+
+          <button
+            onClick={handleAdd}
+            disabled={adding}
+            className="w-full bg-indigo-600 hover:bg-indigo-500 active:scale-[0.97] disabled:opacity-60 text-white font-bold py-3.5 rounded-xl transition-all flex items-center justify-center gap-2"
+          >
+            <Plus size={20} />
+            {adding ? 'Añadiendo…' : 'Añadir serie'}
+          </button>
+        </div>
+      )}
+    </BottomSheet>
+  )
+}
+
+// ── Main page ──────────────────────────────────────────────────────────────────
 export default function Session() {
   const { id } = useParams()
   const { user, setActiveSession } = useApp()
   const navigate = useNavigate()
 
-  const [session, setSession] = useState(null)
-  const [sets, setSets] = useState([])
-  const [currentExercise, setCurrentExercise] = useState(null)
-  const [showSelector, setShowSelector] = useState(false)
+  const [session, setSession]               = useState(null)
+  const [sets, setSets]                     = useState([])
+  const [addingTo, setAddingTo]             = useState(null)
+  const [showSelector, setShowSelector]     = useState(false)
   const [showEndConfirm, setShowEndConfirm] = useState(false)
   const [confirmDeleteSet, setConfirmDeleteSet] = useState(null)
-  const [weight, setWeight] = useState('')
-  const [reps, setReps] = useState('')
-  const [duration, setDuration] = useState('')
-  const [adding, setAdding] = useState(false)
-  const [loading, setLoading] = useState(true)
-  const [ending, setEnding] = useState(false)
-  const [newSetId, setNewSetId] = useState(null)
+  const [loading, setLoading]               = useState(true)
+  const [ending, setEnding]                 = useState(false)
+  const [newSetId, setNewSetId]             = useState(null)
+  const [timerAnchor, setTimerAnchor]       = useState(null)
 
   const sessionElapsed = useTimer(session?.started_at)
-  const [timerAnchor, setTimerAnchor] = useState(null)
 
   useEffect(() => {
     api.getSession(id)
@@ -138,64 +342,24 @@ export default function Session() {
         setSets(data.sets || [])
         setActiveSession(Number(id))
         if (data.sets?.length > 0) {
-          const last = data.sets[data.sets.length - 1]
-          setCurrentExercise({ id: last.exercise_id, name: last.exercise_name, type: last.exercise_type })
-          setTimerAnchor(last.recorded_at)
+          setTimerAnchor(data.sets[data.sets.length - 1].recorded_at)
         }
       })
-      .catch(() => {
-        setActiveSession(null)
-        navigate('/dashboard')
-      })
+      .catch(() => { setActiveSession(null); navigate('/dashboard') })
       .finally(() => setLoading(false))
   }, [id])
 
-  useEffect(() => {
-    if (!currentExercise) return
-    const lastInSession = [...sets].reverse().find(s => s.exercise_id === currentExercise.id)
-    if (lastInSession) {
-      if (currentExercise.type === 'reps') {
-        setWeight(lastInSession.weight != null ? String(lastInSession.weight) : '')
-        setReps(lastInSession.reps != null ? String(lastInSession.reps) : '')
-      } else {
-        setDuration(lastInSession.duration != null ? String(lastInSession.duration / 60) : '')
-      }
-    } else {
-      api.getLastSet(currentExercise.id, user.id).then(last => {
-        if (!last) { setWeight(''); setReps(''); setDuration(''); return }
-        if (currentExercise.type === 'reps') {
-          setWeight(last.weight != null ? String(last.weight) : '')
-          setReps(last.reps != null ? String(last.reps) : '')
-        } else {
-          setDuration(last.duration != null ? String(last.duration / 60) : '')
-        }
-      }).catch(() => { setWeight(''); setReps(''); setDuration('') })
-    }
-  }, [currentExercise?.id])
-
   const handleSelectExercise = (ex) => {
-    setCurrentExercise(ex)
     setShowSelector(false)
+    setAddingTo(ex)
   }
 
-  const handleAddSet = async () => {
-    if (!currentExercise) return
-    setAdding(true)
-    try {
-      const payload = { exercise_id: currentExercise.id }
-      if (currentExercise.type === 'reps') {
-        if (weight) payload.weight = parseFloat(weight)
-        if (reps) payload.reps = parseInt(reps)
-      } else {
-        if (duration) payload.duration = Math.round(parseFloat(duration) * 60)
-      }
-      const newSet = await api.addSet(id, payload)
-      setSets(prev => [...prev, newSet])
-      setTimerAnchor(newSet.recorded_at)
-      setNewSetId(newSet.id)
-      setTimeout(() => setNewSetId(null), 400)
-    } catch (e) { alert(e.message) }
-    setAdding(false)
+  const handleSetAdded = (newSet) => {
+    setSets(prev => [...prev, newSet])
+    setTimerAnchor(newSet.recorded_at)
+    setNewSetId(newSet.id)
+    setTimeout(() => setNewSetId(null), 400)
+    setAddingTo(null)
   }
 
   const handleDeleteSet = async () => {
@@ -210,11 +374,8 @@ export default function Session() {
   const handleEnd = async () => {
     setEnding(true)
     try {
-      if (sets.length === 0) {
-        await api.deleteSession(id)
-      } else {
-        await api.endSession(id)
-      }
+      if (sets.length === 0) await api.deleteSession(id)
+      else await api.endSession(id)
       setActiveSession(null)
       navigate('/dashboard')
     } catch (e) { alert(e.message); setEnding(false) }
@@ -226,26 +387,6 @@ export default function Session() {
     return acc
   }, new Map())
 
-  const setsForCurrent = currentExercise ? (groupedSets.get(currentExercise.id)?.sets ?? []) : []
-
-  const step = (val, setVal, delta, decimals = false) => setVal(prev => {
-    const v = (decimals ? parseFloat(prev) : parseInt(prev)) || 0
-    const result = Math.max(0, v + delta)
-    return decimals ? String(Math.round(result * 2) / 2) : String(result)
-  })
-
-  const fmtSet = (s) => {
-    if (s.exercise_type === 'time') {
-      if (!s.duration) return '—'
-      const mins = s.duration / 60
-      return `${Number.isInteger(mins) ? mins : mins.toFixed(1)} min`
-    }
-    const parts = []
-    if (s.weight != null) parts.push(`${s.weight}kg`)
-    if (s.reps != null) parts.push(`×${s.reps}`)
-    return parts.join(' ') || '—'
-  }
-
   if (loading) return (
     <div className="h-full flex items-center justify-center bg-slate-900">
       <div className="w-8 h-8 border-2 border-indigo-500 border-t-transparent rounded-full animate-spin" />
@@ -254,146 +395,59 @@ export default function Session() {
 
   return (
     <div className="h-full flex flex-col bg-slate-900 page-in">
-      {/* Header */}
-      <div className="flex-shrink-0 px-4 pt-6 pb-3 flex items-center justify-between">
-        <div>
-          <p className="text-slate-400 text-xs">Sesión activa</p>
+
+      {/* ── Header ── */}
+      <div className="flex-shrink-0 px-4 pt-6 pb-3 flex items-start justify-between gap-3">
+        <div className="min-w-0">
+          <p className="text-slate-400 text-xs mb-0.5">Sesión activa</p>
           <p className="text-white font-mono font-bold text-xl">{fmtDur(sessionElapsed)}</p>
+          <RestTimer lastSetAt={timerAnchor} />
         </div>
         <button
           onClick={() => setShowEndConfirm(true)}
-          className="px-4 py-2 bg-red-600 hover:bg-red-500 text-white text-sm font-semibold rounded-xl transition-colors"
+          className="mt-1 px-4 py-2 bg-red-600 hover:bg-red-500 text-white text-sm font-semibold rounded-xl transition-colors flex-shrink-0"
         >
           Finalizar sesión
         </button>
       </div>
 
-      {/* Content */}
-      <div className="flex-1 overflow-hidden">
-        <div className="h-full scrollable no-scrollbar px-4 pb-4 space-y-4">
-          <div className="bg-slate-800 rounded-2xl p-4 space-y-4">
-            {/* Exercise picker */}
-            <button
-              onClick={() => setShowSelector(true)}
-              className="w-full flex items-center justify-between bg-slate-700 hover:bg-slate-600 rounded-xl px-4 py-3 transition-colors"
-            >
-              <div className="flex items-center gap-3">
-                {currentExercise
-                  ? currentExercise.type === 'time'
-                    ? <Clock size={18} className="text-amber-400" />
-                    : <Dumbbell size={18} className="text-indigo-400" />
-                  : <Dumbbell size={18} className="text-slate-500" />}
-                <span className={`font-semibold ${currentExercise ? 'text-white' : 'text-slate-400'}`}>
-                  {currentExercise?.name ?? 'Seleccionar ejercicio'}
-                </span>
-              </div>
-              <ChevronDown size={18} className="text-slate-400" />
-            </button>
-
-            <RestTimer lastSetAt={timerAnchor} />
-
-            {/* Previous sets chips */}
-            {setsForCurrent.length > 0 && (
-              <div className="flex flex-wrap gap-2">
-                {setsForCurrent.map((s, i) => (
-                  <span key={s.id} className="text-xs bg-slate-700 text-slate-300 rounded-lg px-2.5 py-1.5 font-mono">
-                    {i + 1}. {fmtSet(s)}
-                  </span>
-                ))}
-              </div>
-            )}
-
-            {/* Inputs */}
-            {currentExercise && (
-              <>
-                {currentExercise.type === 'reps' ? (
-                  <div className="grid grid-cols-2 gap-3">
-                    <div className="space-y-1.5">
-                      <label className="text-xs text-slate-400 font-medium">Peso (kg)</label>
-                      <div className="flex items-center gap-1">
-                        <button onClick={() => step(weight, setWeight, -2.5, true)} className="w-9 h-9 bg-slate-700 hover:bg-slate-600 rounded-lg text-white font-bold flex-shrink-0 transition-colors">−</button>
-                        <input
-                          type="number" inputMode="decimal" value={weight}
-                          onChange={e => setWeight(e.target.value)} placeholder="0"
-                          className="flex-1 bg-slate-700 text-white text-center rounded-lg py-2.5 outline-none focus:ring-2 focus:ring-indigo-500 text-sm font-semibold w-0"
-                        />
-                        <button onClick={() => step(weight, setWeight, 2.5, true)} className="w-9 h-9 bg-slate-700 hover:bg-slate-600 rounded-lg text-white font-bold flex-shrink-0 transition-colors">+</button>
-                      </div>
-                    </div>
-                    <div className="space-y-1.5">
-                      <label className="text-xs text-slate-400 font-medium">Repeticiones</label>
-                      <div className="flex items-center gap-1">
-                        <button onClick={() => step(reps, setReps, -1)} className="w-9 h-9 bg-slate-700 hover:bg-slate-600 rounded-lg text-white font-bold flex-shrink-0 transition-colors">−</button>
-                        <input
-                          type="number" inputMode="numeric" value={reps}
-                          onChange={e => setReps(e.target.value)} placeholder="0"
-                          className="flex-1 bg-slate-700 text-white text-center rounded-lg py-2.5 outline-none focus:ring-2 focus:ring-indigo-500 text-sm font-semibold w-0"
-                        />
-                        <button onClick={() => step(reps, setReps, 1)} className="w-9 h-9 bg-slate-700 hover:bg-slate-600 rounded-lg text-white font-bold flex-shrink-0 transition-colors">+</button>
-                      </div>
-                    </div>
-                  </div>
-                ) : (
-                  <div className="space-y-1.5">
-                    <label className="text-xs text-slate-400 font-medium">Duración (min)</label>
-                    <div className="flex items-center gap-2">
-                      <button onClick={() => step(duration, setDuration, -0.5, true)} className="w-10 h-10 bg-slate-700 hover:bg-slate-600 rounded-xl text-white font-bold flex-shrink-0 transition-colors">−</button>
-                      <input
-                        type="number" inputMode="decimal" value={duration}
-                        onChange={e => setDuration(e.target.value)} placeholder="0"
-                        step="0.5"
-                        className="flex-1 min-w-0 w-0 bg-slate-700 text-white text-center rounded-xl py-2.5 outline-none focus:ring-2 focus:ring-amber-500 text-lg font-bold"
-                      />
-                      <button onClick={() => step(duration, setDuration, 0.5, true)} className="w-10 h-10 bg-slate-700 hover:bg-slate-600 rounded-xl text-white font-bold flex-shrink-0 transition-colors">+</button>
-                    </div>
-                  </div>
-                )}
-
-                <button
-                  onClick={handleAddSet}
-                  disabled={adding}
-                  className="w-full bg-indigo-600 hover:bg-indigo-500 active:scale-[0.97] disabled:opacity-60 text-white font-bold py-3.5 rounded-xl transition-all flex items-center justify-center gap-2"
-                >
-                  <Plus size={20} />
-                  Añadir serie
-                </button>
-              </>
-            )}
-          </div>
-
-          {/* Session log */}
-          {groupedSets.size > 0 && (
-            <div className="space-y-3">
-              <h3 className="text-slate-400 text-xs font-semibold uppercase tracking-wider px-1">Registro de sesión</h3>
-              {[...groupedSets.entries()].map(([exId, group]) => (
-                <div key={exId} className="bg-slate-800 rounded-2xl p-4">
-                  <div className="flex items-center gap-2 mb-3">
-                    {group.type === 'time'
-                      ? <Clock size={14} className="text-amber-400" />
-                      : <Dumbbell size={14} className="text-indigo-400" />}
-                    <h4 className="text-white font-semibold text-sm">{group.name}</h4>
-                    <span className="ml-auto text-slate-500 text-xs">{group.sets.length} serie{group.sets.length > 1 ? 's' : ''}</span>
-                  </div>
-                  <div className="space-y-1.5">
-                    {group.sets.map((s, i) => (
-                      <div key={s.id} className={`flex items-center gap-3 py-1 ${s.id === newSetId ? 'set-pop' : ''}`}>
-                        <span className="text-slate-500 text-xs w-4 text-right">{i + 1}</span>
-                        <span className="text-white font-mono text-sm flex-1">{fmtSet(s)}</span>
-                        <span className="text-slate-600 text-xs">{dayjs(toUTC(s.recorded_at)).format('HH:mm')}</span>
-                        <button onClick={() => setConfirmDeleteSet(s.id)} className="p-1 text-slate-600 hover:text-red-400 transition-colors">
-                          <Trash2 size={14} />
-                        </button>
-                      </div>
-                    ))}
-                  </div>
-                </div>
-              ))}
+      {/* ── Exercise cards ── */}
+      <div className="flex-1 overflow-y-auto no-scrollbar px-4 pb-4 space-y-3">
+        {groupedSets.size === 0 ? (
+          <div className="h-full flex flex-col items-center justify-center text-center py-16">
+            <div className="w-16 h-16 rounded-2xl bg-slate-800 flex items-center justify-center mb-4">
+              <Dumbbell size={32} className="text-slate-600" />
             </div>
-          )}
-        </div>
+            <p className="text-slate-400 font-medium">Sin ejercicios aún</p>
+            <p className="text-slate-600 text-sm mt-1">Pulsa el botón para añadir el primero</p>
+          </div>
+        ) : (
+          [...groupedSets.entries()].map(([exId, group]) => (
+            <ExerciseCard
+              key={exId}
+              exId={exId}
+              group={group}
+              newSetId={newSetId}
+              onAddSet={() => setAddingTo({ id: exId, name: group.name, type: group.type })}
+              onDeleteSet={setConfirmDeleteSet}
+            />
+          ))
+        )}
       </div>
 
-      {/* Exercise selector */}
+      {/* ── Bottom CTA ── */}
+      <div className="flex-shrink-0 px-4 pb-6 pt-2">
+        <button
+          onClick={() => setShowSelector(true)}
+          className="w-full bg-indigo-600 hover:bg-indigo-500 active:scale-[0.98] text-white font-bold py-4 rounded-2xl flex items-center justify-center gap-2 transition-all"
+        >
+          <Plus size={20} />
+          Añadir ejercicio
+        </button>
+      </div>
+
+      {/* ── Overlays ── */}
+
       {showSelector && (
         <ExerciseSelector
           userId={user?.id}
@@ -402,7 +456,16 @@ export default function Session() {
         />
       )}
 
-      {/* Delete set confirm */}
+      {addingTo && (
+        <AddSetSheet
+          exercise={addingTo}
+          sessionId={id}
+          sessionSets={sets}
+          onAdded={handleSetAdded}
+          onClose={() => setAddingTo(null)}
+        />
+      )}
+
       {confirmDeleteSet && (
         <ConfirmModal
           title="¿Eliminar serie?"
@@ -413,7 +476,6 @@ export default function Session() {
         />
       )}
 
-      {/* End session confirm */}
       {showEndConfirm && (
         <BottomSheet onClose={() => setShowEndConfirm(false)} locked={ending}>
           {() => (
@@ -436,17 +498,22 @@ export default function Session() {
                   onClick={() => setShowEndConfirm(false)}
                   disabled={ending}
                   className="py-3.5 bg-slate-700 hover:bg-slate-600 disabled:opacity-50 text-white rounded-xl font-semibold transition-colors"
-                >Seguir</button>
+                >
+                  Seguir
+                </button>
                 <button
                   onClick={handleEnd}
                   disabled={ending}
                   className="py-3.5 bg-red-600 hover:bg-red-500 disabled:opacity-60 text-white rounded-xl font-semibold transition-colors"
-                >{ending ? 'Finalizando…' : 'Finalizar'}</button>
+                >
+                  {ending ? 'Finalizando…' : 'Finalizar'}
+                </button>
               </div>
             </div>
           )}
         </BottomSheet>
       )}
+
     </div>
   )
 }

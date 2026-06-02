@@ -3,6 +3,16 @@ import BottomSheet from './BottomSheet'
 
 const CHANGELOG = [
   {
+    version: '1.8.0',
+    date: '2 jun 2026',
+    changes: [
+      'Nuevo: Pantalla de sesión rediseñada — tarjeta por ejercicio con botón "+ Serie" directo',
+      'Nuevo: Panel de entrada de serie como modal (peso, reps, series previas como referencia)',
+      'Nuevo: Temporizador de descanso siempre visible en el header junto al cronómetro',
+      'Mejora: Ejercicios salteados ahora son cómodos — puedes añadir serie a cualquier ejercicio con un tap',
+    ],
+  },
+  {
     version: '1.7.3',
     date: '2 jun 2026',
     changes: [
