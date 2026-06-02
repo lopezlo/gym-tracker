@@ -3,6 +3,13 @@ import BottomSheet from './BottomSheet'
 
 const CHANGELOG = [
   {
+    version: '1.8.2',
+    date: '2 jun 2026',
+    changes: [
+      'Mejora: Cache headers corregidos — Chrome ya no cargará versiones antiguas al abrir la app',
+    ],
+  },
+  {
     version: '1.8.1',
     date: '2 jun 2026',
     changes: [
