@@ -3,6 +3,15 @@ import BottomSheet from './BottomSheet'
 
 const CHANGELOG = [
   {
+    version: '1.7.3',
+    date: '2 jun 2026',
+    changes: [
+      'Mejora: Búsqueda de ejercicios ignora acentos (elíptica = eliptica)',
+      'Mejora: Alerta sonora del temporizador más fuerte — tres pitidos ascendentes con vibración',
+      'Fixed: Orden de ejercicios en el registro de sesión (mismo fix que el histórico — Map en vez de objeto plano)',
+    ],
+  },
+  {
     version: '1.7.2',
     date: '29 may 2026',
     changes: [

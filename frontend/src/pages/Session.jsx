@@ -34,16 +34,22 @@ function fmtDur(secs) {
 }
 
 function playAlert() {
-  navigator.vibrate?.([800])
+  navigator.vibrate?.([300, 100, 300, 100, 400])
   try {
     const ctx = new (window.AudioContext || window.webkitAudioContext)()
-    const osc = ctx.createOscillator()
-    const gain = ctx.createGain()
-    osc.connect(gain); gain.connect(ctx.destination)
-    osc.type = 'sine'; osc.frequency.value = 880
-    gain.gain.setValueAtTime(0.35, ctx.currentTime)
-    gain.gain.exponentialRampToValueAtTime(0.001, ctx.currentTime + 1.0)
-    osc.start(); osc.stop(ctx.currentTime + 1.0)
+    // Three ascending beeps: 660 → 880 → 1100 Hz
+    ;[[0, 660], [0.45, 880], [0.9, 1100]].forEach(([delay, freq]) => {
+      const osc = ctx.createOscillator()
+      const gain = ctx.createGain()
+      osc.connect(gain); gain.connect(ctx.destination)
+      osc.type = 'square'
+      osc.frequency.value = freq
+      const t = ctx.currentTime + delay
+      gain.gain.setValueAtTime(0, t)
+      gain.gain.linearRampToValueAtTime(0.5, t + 0.04)
+      gain.gain.exponentialRampToValueAtTime(0.001, t + 0.38)
+      osc.start(t); osc.stop(t + 0.38)
+    })
   } catch {}
 }
 
@@ -215,12 +221,12 @@ export default function Session() {
   }
 
   const groupedSets = sets.reduce((acc, s) => {
-    if (!acc[s.exercise_id]) acc[s.exercise_id] = { name: s.exercise_name, type: s.exercise_type, sets: [] }
-    acc[s.exercise_id].sets.push(s)
+    if (!acc.has(s.exercise_id)) acc.set(s.exercise_id, { name: s.exercise_name, type: s.exercise_type, sets: [] })
+    acc.get(s.exercise_id).sets.push(s)
     return acc
-  }, {})
+  }, new Map())
 
-  const setsForCurrent = currentExercise ? (groupedSets[currentExercise.id]?.sets ?? []) : []
+  const setsForCurrent = currentExercise ? (groupedSets.get(currentExercise.id)?.sets ?? []) : []
 
   const step = (val, setVal, delta, decimals = false) => setVal(prev => {
     const v = (decimals ? parseFloat(prev) : parseInt(prev)) || 0
@@ -356,10 +362,10 @@ export default function Session() {
           </div>
 
           {/* Session log */}
-          {Object.keys(groupedSets).length > 0 && (
+          {groupedSets.size > 0 && (
             <div className="space-y-3">
               <h3 className="text-slate-400 text-xs font-semibold uppercase tracking-wider px-1">Registro de sesión</h3>
-              {Object.entries(groupedSets).map(([exId, group]) => (
+              {[...groupedSets.entries()].map(([exId, group]) => (
                 <div key={exId} className="bg-slate-800 rounded-2xl p-4">
                   <div className="flex items-center gap-2 mb-3">
                     {group.type === 'time'

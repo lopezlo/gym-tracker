@@ -18,6 +18,8 @@ export const CATEGORIES = [
 
 const catLabel = (id) => CATEGORIES.find(c => c.id === id)?.label ?? id
 
+const normalize = (s) => s.normalize('NFD').replace(/[̀-ͯ]/g, '').toLowerCase()
+
 // ── Favorites helpers (per-user localStorage) ─────────────────────────────────
 const favsKey   = (userId) => `gym_favs_${userId}`
 const loadFavs  = (userId) => { try { return new Set(JSON.parse(localStorage.getItem(favsKey(userId))) ?? []) } catch { return new Set() } }
@@ -146,8 +148,8 @@ export default function ExerciseSelector({ userId, onSelect, onClose }) {
     api.getExercises(userId).then(setExercises).finally(() => setLoading(false))
   }, [])
 
-  const filtered   = exercises.filter(e => e.name.toLowerCase().includes(query.toLowerCase()))
-  const exactMatch = exercises.find(e => e.name.toLowerCase() === query.toLowerCase())
+  const filtered   = exercises.filter(e => normalize(e.name).includes(normalize(query)))
+  const exactMatch = exercises.find(e => normalize(e.name) === normalize(query))
 
   // ── Grouped (no search) ───────────────────────────────────────────────────
   const favList    = filtered.filter(e => favs.has(e.id))
