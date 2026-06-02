@@ -3,6 +3,15 @@ import BottomSheet from './BottomSheet'
 
 const CHANGELOG = [
   {
+    version: '1.8.1',
+    date: '2 jun 2026',
+    changes: [
+      'Mejora: Calendario muestra el año completo — días futuros visibles en gris oscuro',
+      'Fixed: Etiquetas de mes del calendario en minúsculas',
+      'Mejora: Zoom desactivado (user-scalable=no) para experiencia nativa',
+    ],
+  },
+  {
     version: '1.8.0',
     date: '2 jun 2026',
     changes: [
