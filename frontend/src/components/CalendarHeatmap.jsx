@@ -12,7 +12,7 @@ export default function CalendarHeatmap({ data }) {
 
   const today = dayjs()
   const yearStart = dayjs(`${year}-01-01`)
-  const yearEnd = year === currentYear ? today : dayjs(`${year}-12-31`)
+  const yearEnd = dayjs(`${year}-12-31`)
 
   // Start grid from the Sunday on or before Jan 1
   const gridStart = yearStart.subtract(yearStart.day(), 'day')
@@ -38,6 +38,7 @@ export default function CalendarHeatmap({ data }) {
 
   const colorFor = (date) => {
     if (!date) return 'bg-transparent'
+    if (dayjs(date).isAfter(today, 'day')) return 'bg-slate-800/80'
     const entry = dataMap[date]
     if (!entry) return 'bg-slate-700/60'
     if (!entry.total_minutes || entry.total_minutes === 0) return 'bg-indigo-700'
@@ -93,10 +94,10 @@ export default function CalendarHeatmap({ data }) {
         {monthLabels().map(({ i, label }) => (
           <span
             key={`${i}-${label}`}
-            className="absolute text-[10px] text-slate-500 capitalize"
+            className="absolute text-[10px] text-slate-500"
             style={{ left: `${(i / weeks.length) * 100}%` }}
           >
-            {label}
+            {label.toLowerCase()}
           </span>
         ))}
       </div>
