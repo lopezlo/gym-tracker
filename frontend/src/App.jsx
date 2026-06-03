@@ -6,6 +6,7 @@ import Dashboard from './pages/Dashboard'
 import Session from './pages/Session'
 import History from './pages/History'
 import Import from './pages/Import'
+import Planner from './pages/Planner'
 
 export default function App() {
   return (
@@ -16,6 +17,7 @@ export default function App() {
           <Route element={<MainLayout />}>
             <Route path="/dashboard" element={<Dashboard />} />
             <Route path="/history" element={<History />} />
+            <Route path="/planner" element={<Planner />} />
             <Route path="/import" element={<Import />} />
             <Route path="/session/:id" element={<Session />} />
           </Route>

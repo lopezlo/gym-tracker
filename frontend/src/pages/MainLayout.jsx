@@ -1,6 +1,6 @@
 import { useState, useEffect, useLayoutEffect, useRef } from 'react'
 import { Outlet, NavLink, useNavigate, useLocation } from 'react-router-dom'
-import { LayoutDashboard, BarChart2, Activity, LogOut } from 'lucide-react'
+import { LayoutDashboard, BarChart2, Activity, LogOut, CalendarDays } from 'lucide-react'
 import { useApp } from '../context/AppContext'
 import { api } from '../api/client'
 import Dashboard from './Dashboard'
@@ -17,8 +17,10 @@ export default function MainLayout() {
   const navigate = useNavigate()
   const location = useLocation()
 
-  const isTabRoute = location.pathname === '/dashboard' || location.pathname === '/history'
-  const tabIndex   = location.pathname === '/history' ? 1 : 0
+  const isHeaderRoute = ['/dashboard', '/history', '/planner'].includes(location.pathname)
+  const isSwipeTab    = location.pathname === '/dashboard' || location.pathname === '/history'
+  const isTabRoute    = isHeaderRoute   // keep alias for any remaining references
+  const tabIndex      = location.pathname === '/history' ? 1 : 0
   const tabIndexRef = useRef(tabIndex)
 
   const [showStartModal,   setShowStartModal]   = useState(false)
@@ -52,13 +54,15 @@ export default function MainLayout() {
     containerRef.current.style.transform = `translateX(${-idx * 50}%)`
   }
 
-  // Move pill to tab position — uses navRef for accurate width
+  // Move pill to tab position — 3 NavLinks + center w-20
+  // Layout: [Dashboard flex-1] [center w-20] [Planner flex-1] [History flex-1]
   const setPillX = (progress, animate) => {
     const pill = pillRef.current
     if (!pill) return
-    const W = navRef.current?.offsetWidth || window.innerWidth
-    const leftDash = (W - 80) / 4
-    const leftHist = (W - 80) * (3 / 4) + 80
+    const W    = navRef.current?.offsetWidth || window.innerWidth
+    const each = (W - 80) / 3
+    const leftDash = each / 2
+    const leftHist = each + 80 + each + each / 2   // = each*2.5 + 80
     const px = leftDash + (leftHist - leftDash) * Math.max(0, Math.min(1, progress))
     pill.style.transition = animate ? 'left 280ms cubic-bezier(0.4,0,0.2,1)' : 'none'
     pill.style.left = `${px}px`
@@ -260,11 +264,11 @@ export default function MainLayout() {
       {/* ── Main content area ── */}
       <div className="flex-1 overflow-hidden relative">
 
-        {/* Two-panel swipe container — always mounted */}
+        {/* Two-panel swipe container — Dashboard + History */}
         <div
           ref={wrapperRef}
           className="absolute inset-0"
-          style={{ display: isTabRoute ? 'block' : 'none' }}
+          style={{ display: isSwipeTab ? 'block' : 'none' }}
         >
           <div
             ref={containerRef}
@@ -279,8 +283,8 @@ export default function MainLayout() {
           </div>
         </div>
 
-        {/* Normal outlet — Session, Import … */}
-        {!isTabRoute && <Outlet />}
+        {/* Outlet — Planner, Session, Import … */}
+        {!isSwipeTab && <Outlet />}
 
       </div>
 
@@ -300,7 +304,7 @@ export default function MainLayout() {
             height:        '3px',
             borderRadius:  '9999px',
             background:    '#6366f1',
-            opacity:       isTabRoute ? 1 : 0,
+            opacity:       isSwipeTab ? 1 : 0,
             transform:     'translateX(-50%)',
             pointerEvents: 'none',
           }}
@@ -322,6 +326,7 @@ export default function MainLayout() {
 
           {/* ── Center session button ── */}
           <div className="w-20 flex-shrink-0 flex justify-center" style={{ position: 'relative', height: '64px' }}>
+
             <div
               style={{
                 position:     'absolute',
@@ -372,6 +377,18 @@ export default function MainLayout() {
               </button>
             </div>
           </div>
+
+          <NavLink
+            to="/planner"
+            className={({ isActive }) =>
+              `flex-1 flex flex-col items-center gap-1 py-3 text-xs font-medium transition-colors ${
+                isActive ? 'text-indigo-400' : 'text-slate-500 hover:text-slate-300'
+              }`
+            }
+          >
+            <CalendarDays size={22} />
+            Planif.
+          </NavLink>
 
           <NavLink
             to="/history"

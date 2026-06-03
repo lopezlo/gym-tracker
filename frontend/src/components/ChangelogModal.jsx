@@ -3,6 +3,18 @@ import BottomSheet from './BottomSheet'
 
 const CHANGELOG = [
   {
+    version: '1.9.0',
+    date: '3 jun 2026',
+    changes: [
+      'Nuevo: Planificador — tab dedicado para gestionar rutinas y la próxima sesión',
+      'Nuevo: Rutinas reutilizables con días de la semana asignados (multi-día)',
+      'Nuevo: Próxima sesión — planifica los ejercicios de tu siguiente entreno (uso único)',
+      'Nuevo: En sesión activa, botón para cargar rutina del día o la sesión planificada',
+      'Nuevo: Ejercicios planificados aparecen como tarjetas fantasma hasta que se empieza a ejecutarlos',
+      'Mejora: La próxima sesión se consume automáticamente al cargarla',
+    ],
+  },
+  {
     version: '1.8.2',
     date: '2 jun 2026',
     changes: [

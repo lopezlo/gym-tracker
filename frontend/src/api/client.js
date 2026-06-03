@@ -44,6 +44,17 @@ export const api = {
   updateSession: (id, data) => req('PATCH', `/sessions/${id}`, data),
   reorderSets: (sessionId, setIds) => req('PUT', `/sessions/${sessionId}/reorder`, { setIds }),
 
+  // Routines
+  getRoutines:   (userId)       => req('GET',    `/routines?user_id=${userId}`),
+  createRoutine: (userId, data) => req('POST',   '/routines', { ...data, user_id: userId }),
+  updateRoutine: (id, data)     => req('PUT',    `/routines/${id}`, data),
+  deleteRoutine: (id)           => req('DELETE', `/routines/${id}`),
+
+  // Session plan
+  getPlan:    (userId)           => req('GET',    `/plans?user_id=${userId}`),
+  savePlan:   (userId, exercises) => req('PUT',   '/plans', { user_id: userId, exercises }),
+  deletePlan: (userId)           => req('DELETE', `/plans?user_id=${userId}`),
+
   previewCSV: (file) => {
     const fd = new FormData()
     fd.append('file', file)

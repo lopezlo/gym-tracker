@@ -1,6 +1,6 @@
 import { useState, useEffect, useRef, useMemo } from 'react'
 import { useParams, useNavigate } from 'react-router-dom'
-import { Plus, Trash2, Clock, Dumbbell, CheckCircle } from 'lucide-react'
+import { Plus, Trash2, Clock, Dumbbell, CheckCircle, Calendar, ChevronRight } from 'lucide-react'
 import { api } from '../api/client'
 import { useApp } from '../context/AppContext'
 import ExerciseSelector from '../components/ExerciseSelector'
@@ -113,6 +113,28 @@ function RestTimer({ lastSetAt }) {
       <Clock size={13} className="text-red-400" />
       <span className="text-red-400 font-semibold">¡A por ello!</span>
       <span className="text-slate-500 text-xs font-mono ml-1">+{fmtDur(-remaining)}</span>
+    </div>
+  )
+}
+
+// ── Ghost Card (planned, not yet started) ─────────────────────────────────────
+function GhostCard({ exercise, onStart }) {
+  return (
+    <div className="bg-slate-800/50 border border-dashed border-slate-700 rounded-2xl p-4">
+      <div className="flex items-center gap-2 mb-3">
+        {exercise.type === 'time'
+          ? <Clock size={14} className="text-amber-400/50 flex-shrink-0" />
+          : <Dumbbell size={14} className="text-indigo-400/50 flex-shrink-0" />}
+        <h4 className="text-slate-500 font-semibold text-sm flex-1 truncate">{exercise.name}</h4>
+        <span className="text-[10px] text-slate-600 flex-shrink-0 font-medium uppercase tracking-wide">planificado</span>
+      </div>
+      <button
+        onClick={() => onStart(exercise)}
+        className="w-full flex items-center justify-center gap-1.5 py-2 rounded-xl border border-dashed border-slate-700 hover:border-indigo-500 hover:bg-indigo-500/10 text-slate-600 hover:text-indigo-400 active:bg-indigo-500/20 transition-colors text-sm"
+      >
+        <Plus size={14} />
+        Empezar
+      </button>
     </div>
   )
 }
@@ -332,6 +354,11 @@ export default function Session() {
   const [ending, setEnding]                 = useState(false)
   const [newSetId, setNewSetId]             = useState(null)
   const [timerAnchor, setTimerAnchor]       = useState(null)
+  // Template loading
+  const [loadedTemplate, setLoadedTemplate] = useState(null)  // { type, exercises }
+  const [todayRoutines, setTodayRoutines]   = useState([])
+  const [sessionPlan, setSessionPlan]       = useState(null)
+  const [showRoutinePicker, setShowRoutinePicker] = useState(false)
 
   const sessionElapsed = useTimer(session?.started_at)
 
@@ -347,11 +374,34 @@ export default function Session() {
       })
       .catch(() => { setActiveSession(null); navigate('/dashboard') })
       .finally(() => setLoading(false))
+    // Fetch today's routines and session plan
+    const today = new Date().getDay()
+    api.getRoutines(user.id)
+      .then(rs => setTodayRoutines(rs.filter(r => r.days.includes(today))))
+      .catch(() => {})
+    api.getPlan(user.id).then(setSessionPlan).catch(() => {})
   }, [id])
 
   const handleSelectExercise = (ex) => {
     setShowSelector(false)
     setAddingTo(ex)
+  }
+
+  const handleLoadPlan = () => {
+    if (!sessionPlan) return
+    setLoadedTemplate({ type: 'plan', exercises: sessionPlan.exercises })
+    setSessionPlan(null)
+    api.deletePlan(user.id).catch(() => {})
+  }
+
+  const handleLoadRoutine = (routine) => {
+    setLoadedTemplate({ type: 'routine', exercises: routine.exercises })
+    setShowRoutinePicker(false)
+  }
+
+  const onClickRoutineButton = () => {
+    if (todayRoutines.length === 1) handleLoadRoutine(todayRoutines[0])
+    else setShowRoutinePicker(true)
   }
 
   const handleSetAdded = (newSet) => {
@@ -387,6 +437,12 @@ export default function Session() {
     return acc
   }, new Map())
 
+  const ghostExercises = loadedTemplate
+    ? loadedTemplate.exercises.filter(ex => !groupedSets.has(ex.id))
+    : []
+
+  const showTemplateButtons = sets.length === 0 && (todayRoutines.length > 0 || sessionPlan)
+
   if (loading) return (
     <div className="h-full flex items-center justify-center bg-slate-900">
       <div className="w-8 h-8 border-2 border-indigo-500 border-t-transparent rounded-full animate-spin" />
@@ -413,26 +469,72 @@ export default function Session() {
 
       {/* ── Exercise cards ── */}
       <div className="flex-1 overflow-y-auto no-scrollbar px-4 pb-4 space-y-3">
-        {groupedSets.size === 0 ? (
-          <div className="h-full flex flex-col items-center justify-center text-center py-16">
+
+        {/* Template load buttons — only when session is empty */}
+        {showTemplateButtons && (
+          <div className="space-y-2 pt-1">
+            {sessionPlan && (
+              <button
+                onClick={handleLoadPlan}
+                className="w-full flex items-center gap-3 px-4 py-3.5 bg-emerald-500/10 border border-emerald-500/25 hover:bg-emerald-500/20 rounded-2xl transition-colors text-left"
+              >
+                <CheckCircle size={18} className="text-emerald-400 flex-shrink-0" />
+                <div className="min-w-0">
+                  <p className="text-emerald-300 font-semibold text-sm">Cargar próxima sesión</p>
+                  <p className="text-emerald-700 text-xs">{sessionPlan.exercises.length} ejercicios planificados</p>
+                </div>
+              </button>
+            )}
+            {todayRoutines.length > 0 && (
+              <button
+                onClick={onClickRoutineButton}
+                className="w-full flex items-center gap-3 px-4 py-3.5 bg-indigo-500/10 border border-indigo-500/25 hover:bg-indigo-500/20 rounded-2xl transition-colors text-left"
+              >
+                <Calendar size={18} className="text-indigo-400 flex-shrink-0" />
+                <div className="flex-1 min-w-0">
+                  <p className="text-indigo-300 font-semibold text-sm">
+                    {todayRoutines.length === 1 ? todayRoutines[0].name : `Rutinas de hoy (${todayRoutines.length})`}
+                  </p>
+                  <p className="text-indigo-700 text-xs">
+                    {todayRoutines.length === 1
+                      ? `${todayRoutines[0].exercises.length} ejercicios`
+                      : 'Selecciona una rutina'}
+                  </p>
+                </div>
+                {todayRoutines.length > 1 && <ChevronRight size={16} className="text-indigo-600 flex-shrink-0" />}
+              </button>
+            )}
+          </div>
+        )}
+
+        {/* Empty state (no sets, no template) */}
+        {groupedSets.size === 0 && ghostExercises.length === 0 && (
+          <div className="flex flex-col items-center justify-center text-center py-12">
             <div className="w-16 h-16 rounded-2xl bg-slate-800 flex items-center justify-center mb-4">
               <Dumbbell size={32} className="text-slate-600" />
             </div>
             <p className="text-slate-400 font-medium">Sin ejercicios aún</p>
             <p className="text-slate-600 text-sm mt-1">Pulsa el botón para añadir el primero</p>
           </div>
-        ) : (
-          [...groupedSets.entries()].map(([exId, group]) => (
-            <ExerciseCard
-              key={exId}
-              exId={exId}
-              group={group}
-              newSetId={newSetId}
-              onAddSet={() => setAddingTo({ id: exId, name: group.name, type: group.type })}
-              onDeleteSet={setConfirmDeleteSet}
-            />
-          ))
         )}
+
+        {/* Real exercise cards */}
+        {[...groupedSets.entries()].map(([exId, group]) => (
+          <ExerciseCard
+            key={exId}
+            exId={exId}
+            group={group}
+            newSetId={newSetId}
+            onAddSet={() => setAddingTo({ id: exId, name: group.name, type: group.type })}
+            onDeleteSet={setConfirmDeleteSet}
+          />
+        ))}
+
+        {/* Ghost cards (planned, not yet started) */}
+        {ghostExercises.map(ex => (
+          <GhostCard key={ex.id} exercise={ex} onStart={setAddingTo} />
+        ))}
+
       </div>
 
       {/* ── Bottom CTA ── */}
@@ -454,6 +556,29 @@ export default function Session() {
           onSelect={handleSelectExercise}
           onClose={() => setShowSelector(false)}
         />
+      )}
+
+      {showRoutinePicker && (
+        <BottomSheet onClose={() => setShowRoutinePicker(false)}>
+          {({ dismiss }) => (
+            <div className="px-5 pb-8 pt-2 space-y-3">
+              <h2 className="text-white font-bold text-base mb-1">Rutinas de hoy</h2>
+              {todayRoutines.map(r => (
+                <button
+                  key={r.id}
+                  onClick={() => { handleLoadRoutine(r); dismiss() }}
+                  className="w-full flex items-center gap-3 px-4 py-3.5 bg-slate-800 hover:bg-slate-700 rounded-2xl text-left transition-colors"
+                >
+                  <div className="flex-1 min-w-0">
+                    <p className="text-white font-semibold text-sm">{r.name}</p>
+                    <p className="text-slate-500 text-xs">{r.exercises.length} ejercicio{r.exercises.length !== 1 ? 's' : ''}</p>
+                  </div>
+                  <ChevronRight size={16} className="text-slate-600 flex-shrink-0" />
+                </button>
+              ))}
+            </div>
+          )}
+        </BottomSheet>
       )}
 
       {addingTo && (
