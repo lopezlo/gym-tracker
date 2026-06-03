@@ -1,4 +1,5 @@
 import { useRef, useEffect, useCallback } from 'react'
+import { createPortal } from 'react-dom'
 
 /**
  * Reusable animated bottom-sheet.
@@ -176,7 +177,7 @@ export default function BottomSheet({ onClose, locked = false, className = '', c
     }
   }, []) // runs once; refs keep locked/animateOut current
 
-  return (
+  return createPortal(
     <div className="fixed inset-0 z-50 flex items-end">
       {/* Backdrop — full viewport, starts transparent */}
       <div
@@ -202,6 +203,7 @@ export default function BottomSheet({ onClose, locked = false, className = '', c
         {/* Background extension: hides the gap that appears during the spring overshoot */}
         <div className="absolute inset-x-0 -bottom-16 h-16 bg-slate-800 pointer-events-none" aria-hidden="true" />
       </div>
-    </div>
+    </div>,
+    document.body
   )
 }

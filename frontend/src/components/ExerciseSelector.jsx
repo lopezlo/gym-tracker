@@ -1,4 +1,5 @@
 import { useState, useEffect, useRef } from 'react'
+import { createPortal } from 'react-dom'
 import { Search, Plus, X, Clock, Dumbbell, Star } from 'lucide-react'
 import { api } from '../api/client'
 
@@ -210,7 +211,7 @@ export default function ExerciseSelector({ userId, onSelect, onClose }) {
     onSetCategory: handleSetCategory,
   })
 
-  return (
+  return createPortal(
     <div className="fixed inset-0 z-50 flex items-end">
       <div className="absolute inset-0 bg-black/60" onClick={onClose} />
 
@@ -374,6 +375,7 @@ export default function ExerciseSelector({ userId, onSelect, onClose }) {
           </div>
         </div>
       </div>
-    </div>
+    </div>,
+    document.body
   )
 }
