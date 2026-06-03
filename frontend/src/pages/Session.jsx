@@ -1,6 +1,6 @@
 import { useState, useEffect, useRef, useMemo } from 'react'
 import { useParams, useNavigate } from 'react-router-dom'
-import { Plus, Trash2, Clock, Dumbbell, CheckCircle, Calendar, ChevronRight } from 'lucide-react'
+import { Plus, Trash2, Clock, Dumbbell, CheckCircle, Calendar, ChevronRight, X } from 'lucide-react'
 import { api } from '../api/client'
 import { useApp } from '../context/AppContext'
 import ExerciseSelector from '../components/ExerciseSelector'
@@ -492,16 +492,14 @@ export default function Session() {
               >
                 <Calendar size={18} className="text-indigo-400 flex-shrink-0" />
                 <div className="flex-1 min-w-0">
-                  <p className="text-indigo-300 font-semibold text-sm">
-                    {todayRoutines.length === 1 ? todayRoutines[0].name : `Rutinas de hoy (${todayRoutines.length})`}
-                  </p>
-                  <p className="text-indigo-700 text-xs">
-                    {todayRoutines.length === 1
-                      ? `${todayRoutines[0].exercises.length} ejercicios`
-                      : 'Selecciona una rutina'}
+                  <p className="text-slate-400 text-xs">Hoy toca rutina de:</p>
+                  <p className="text-indigo-300 font-semibold text-sm truncate">
+                    {todayRoutines.length === 1 ? todayRoutines[0].name : `${todayRoutines.length} rutinas disponibles`}
                   </p>
                 </div>
-                {todayRoutines.length > 1 && <ChevronRight size={16} className="text-indigo-600 flex-shrink-0" />}
+                <span className="text-indigo-400 text-xs font-semibold flex-shrink-0">
+                  {todayRoutines.length > 1 ? 'Elegir' : 'Cargar'}
+                </span>
               </button>
             )}
           </div>
@@ -531,9 +529,25 @@ export default function Session() {
         ))}
 
         {/* Ghost cards (planned, not yet started) */}
-        {ghostExercises.map(ex => (
-          <GhostCard key={ex.id} exercise={ex} onStart={setAddingTo} />
-        ))}
+        {ghostExercises.length > 0 && (
+          <>
+            <div className="flex items-center justify-between px-1 pt-1">
+              <span className="text-xs text-slate-600 uppercase tracking-wider font-medium">
+                {loadedTemplate?.type === 'routine' ? 'Rutina cargada' : 'Sesión planificada'}
+              </span>
+              <button
+                onClick={() => setLoadedTemplate(null)}
+                className="flex items-center gap-1 text-xs text-slate-600 hover:text-red-400 transition-colors"
+              >
+                <X size={12} />
+                Quitar
+              </button>
+            </div>
+            {ghostExercises.map(ex => (
+              <GhostCard key={ex.id} exercise={ex} onStart={setAddingTo} />
+            ))}
+          </>
+        )}
 
       </div>
 

@@ -3,6 +3,15 @@ import BottomSheet from './BottomSheet'
 
 const CHANGELOG = [
   {
+    version: '1.9.1',
+    date: '3 jun 2026',
+    changes: [
+      'Mejora: Botón de rutina muestra "Hoy toca rutina de: <nombre>" con acción Cargar/Elegir',
+      'Nuevo: Botón "Quitar" para limpiar plantilla cargada si te arrepientes',
+      'Mejora: Swipe horizontal incluye el Planificador entre Dashboard y Progreso',
+    ],
+  },
+  {
     version: '1.9.0',
     date: '3 jun 2026',
     changes: [

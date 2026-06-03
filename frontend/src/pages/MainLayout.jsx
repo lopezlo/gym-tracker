@@ -5,6 +5,7 @@ import { useApp } from '../context/AppContext'
 import { api } from '../api/client'
 import Dashboard from './Dashboard'
 import History from './History'
+import Planner from './Planner'
 import BottomSheet from '../components/BottomSheet'
 import SettingsSheet from '../components/SettingsSheet'
 
@@ -17,10 +18,11 @@ export default function MainLayout() {
   const navigate = useNavigate()
   const location = useLocation()
 
-  const isHeaderRoute = ['/dashboard', '/history', '/planner'].includes(location.pathname)
-  const isSwipeTab    = location.pathname === '/dashboard' || location.pathname === '/history'
-  const isTabRoute    = isHeaderRoute   // keep alias for any remaining references
-  const tabIndex      = location.pathname === '/history' ? 1 : 0
+  const isSwipeTab = ['/dashboard', '/planner', '/history'].includes(location.pathname)
+  const isTabRoute = isSwipeTab   // alias kept for clarity
+  const tabIndex   = location.pathname === '/history' ? 2
+                   : location.pathname === '/planner'  ? 1
+                   : 0
   const tabIndexRef = useRef(tabIndex)
 
   const [showStartModal,   setShowStartModal]   = useState(false)
@@ -45,25 +47,31 @@ export default function MainLayout() {
 
   useEffect(() => { tabIndexRef.current = tabIndex }, [tabIndex])
 
-  // Snap container to tab position
+  // Snap container to tab position (3 panels → 33.333% each)
   const snapTo = (idx, animate) => {
     if (!containerRef.current) return
     containerRef.current.style.transition = animate
       ? 'transform 280ms cubic-bezier(0.4,0,0.2,1)'
       : 'none'
-    containerRef.current.style.transform = `translateX(${-idx * 50}%)`
+    containerRef.current.style.transform = `translateX(${-(idx * 100) / 3}%)`
   }
 
-  // Move pill to tab position — 3 NavLinks + center w-20
-  // Layout: [Dashboard flex-1] [center w-20] [Planner flex-1] [History flex-1]
+  // Move pill — nav layout: [Dashboard] [center w-20] [Planner] [History]
+  // 3 flex-1 items → each = (W-80)/3
   const setPillX = (progress, animate) => {
     const pill = pillRef.current
     if (!pill) return
     const W    = navRef.current?.offsetWidth || window.innerWidth
     const each = (W - 80) / 3
-    const leftDash = each / 2
-    const leftHist = each + 80 + each + each / 2   // = each*2.5 + 80
-    const px = leftDash + (leftHist - leftDash) * Math.max(0, Math.min(1, progress))
+    const positions = [
+      each / 2,               // 0: Dashboard
+      each + 80 + each / 2,   // 1: Planner
+      each + 80 + each + each / 2,  // 2: History
+    ]
+    const lo = Math.max(0, Math.min(2, Math.floor(progress)))
+    const hi = Math.min(2, lo + 1)
+    const t  = progress - lo
+    const px = positions[lo] + (positions[hi] - positions[lo]) * t
     pill.style.transition = animate ? 'left 280ms cubic-bezier(0.4,0,0.2,1)' : 'none'
     pill.style.left = `${px}px`
   }
@@ -105,14 +113,14 @@ export default function MainLayout() {
 
       const idx     = tabIndexRef.current
       const screenW = window.innerWidth
-      let dragPct   = (dx / screenW) * 50
+      let dragPct   = (dx / screenW) * (100 / 3)
 
       // Rubber band at edges
       if (dragPct > 0 && idx === 0) dragPct *= 0.12
-      if (dragPct < 0 && idx === 1) dragPct *= 0.12
+      if (dragPct < 0 && idx === 2) dragPct *= 0.12
 
-      const baseX    = -idx * 50
-      const progress = idx + (-dragPct / 50)
+      const baseX    = -(idx * 100) / 3
+      const progress = idx + (-dragPct / (100 / 3))
 
       if (containerRef.current) {
         containerRef.current.style.transform = `translateX(${baseX + dragPct}%)`
@@ -138,12 +146,11 @@ export default function MainLayout() {
       const VEL_THRESHOLD  = 0.35
 
       let newTab = idx
-      if (dx < 0 && idx === 0 && (Math.abs(dx) > DIST_THRESHOLD || velocity > VEL_THRESHOLD)) newTab = 1
-      if (dx > 0 && idx === 1 && (Math.abs(dx) > DIST_THRESHOLD || velocity > VEL_THRESHOLD)) newTab = 0
+      if (dx < 0 && idx < 2 && (Math.abs(dx) > DIST_THRESHOLD || velocity > VEL_THRESHOLD)) newTab = idx + 1
+      if (dx > 0 && idx > 0 && (Math.abs(dx) > DIST_THRESHOLD || velocity > VEL_THRESHOLD)) newTab = idx - 1
 
       if (newTab !== idx) {
-        navigate(newTab === 0 ? '/dashboard' : '/history')
-        // useLayoutEffect will fire and call snapTo + setPillX for the new tab
+        navigate(newTab === 0 ? '/dashboard' : newTab === 1 ? '/planner' : '/history')
       } else {
         snapTo(idx, true)
         setPillX(idx, true)
@@ -232,8 +239,8 @@ export default function MainLayout() {
   return (
     <div className="flex flex-col h-full bg-slate-900">
 
-      {/* ── Static shared header — only for tab routes ── */}
-      {isTabRoute && (
+      {/* ── Static shared header — only for swipe tabs ── */}
+      {isSwipeTab && (
         <div className="flex-shrink-0 px-4 pt-6 pb-3 flex items-center justify-between">
           <div className="flex items-center gap-3">
             <button
@@ -272,12 +279,15 @@ export default function MainLayout() {
         >
           <div
             ref={containerRef}
-            style={{ display: 'flex', width: '200%', height: '100%', willChange: 'transform' }}
+            style={{ display: 'flex', width: '300%', height: '100%', willChange: 'transform' }}
           >
-            <div style={{ width: '50%', height: '100%', overflowY: 'auto', overflowX: 'hidden' }}>
+            <div style={{ width: '33.333%', height: '100%', overflowY: 'auto', overflowX: 'hidden' }}>
               <Dashboard />
             </div>
-            <div style={{ width: '50%', height: '100%', overflowY: 'auto', overflowX: 'hidden' }}>
+            <div style={{ width: '33.333%', height: '100%', overflowY: 'auto', overflowX: 'hidden' }}>
+              <Planner />
+            </div>
+            <div style={{ width: '33.333%', height: '100%', overflowY: 'auto', overflowX: 'hidden' }}>
               <History />
             </div>
           </div>
