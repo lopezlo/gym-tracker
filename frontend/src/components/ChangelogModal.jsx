@@ -3,6 +3,13 @@ import BottomSheet from './BottomSheet'
 
 const CHANGELOG = [
   {
+    version: '1.9.2',
+    date: '3 jun 2026',
+    changes: [
+      'Fixed: Modales del Planificador rotos al estar dentro del contenedor de swipe (portal a document.body)',
+    ],
+  },
+  {
     version: '1.9.1',
     date: '3 jun 2026',
     changes: [
