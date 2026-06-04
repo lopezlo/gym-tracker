@@ -377,7 +377,6 @@ export default function Planner() {
                         </button>
                       </div>
                     </div>
-                  </div>
                 )
               })}
             </div>
