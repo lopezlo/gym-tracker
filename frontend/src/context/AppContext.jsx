@@ -13,28 +13,37 @@ export function AppProvider({ children }) {
     return s ? Number(s) : null
   })
 
-  // In-memory stats cache keyed by userId — survives navigation, resets on page reload
+  const [activeSessionStartedAt, setActiveSessionStartedAtState] = useState(() => {
+    return localStorage.getItem('gym_active_session_started_at') || null
+  })
+
   const [statsCache, setStatsCacheState] = useState({})
-
-  const setStatsCache = (userId, data) => {
+  const setStatsCache = (userId, data) =>
     setStatsCacheState(prev => ({ ...prev, [userId]: data }))
-  }
 
-  const setActiveSession = (id) => {
+  // id: number | null   startedAt: ISO string | null
+  const setActiveSession = (id, startedAt = null) => {
     setActiveSessionIdState(id ?? null)
+    setActiveSessionStartedAtState(startedAt ?? null)
     if (id != null) {
       localStorage.setItem('gym_active_session', String(id))
+      if (startedAt) localStorage.setItem('gym_active_session_started_at', String(startedAt))
+      else           localStorage.removeItem('gym_active_session_started_at')
     } else {
       localStorage.removeItem('gym_active_session')
+      localStorage.removeItem('gym_active_session_started_at')
     }
   }
 
-  // Verify stored session is still open when user changes
   useEffect(() => {
     if (!user) { setActiveSession(null); return }
     if (!activeSessionId) return
     api.getSession(activeSessionId)
-      .then(s => { if (s.ended_at) setActiveSession(null) })
+      .then(s => {
+        if (s.ended_at) setActiveSession(null)
+        else if (!activeSessionStartedAt && s.started_at)
+          setActiveSessionStartedAtState(s.started_at)
+      })
       .catch(() => setActiveSession(null))
   }, [user?.id])
 
@@ -52,7 +61,7 @@ export function AppProvider({ children }) {
   return (
     <AppContext.Provider value={{
       user, selectUser, logout,
-      activeSessionId, setActiveSession,
+      activeSessionId, activeSessionStartedAt, setActiveSession,
       statsCache, setStatsCache,
     }}>
       {children}

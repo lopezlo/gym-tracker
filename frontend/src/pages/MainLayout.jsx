@@ -1,6 +1,6 @@
 import { useState, useEffect, useLayoutEffect, useRef } from 'react'
 import { Outlet, NavLink, useNavigate, useLocation } from 'react-router-dom'
-import { LayoutDashboard, BarChart2, Activity, LogOut, CalendarDays } from 'lucide-react'
+import { BarChart2, Activity, LogOut, CalendarDays } from 'lucide-react'
 import { useApp } from '../context/AppContext'
 import { api } from '../api/client'
 import Dashboard from './Dashboard'
@@ -9,45 +9,66 @@ import Planner from './Planner'
 import BottomSheet from '../components/BottomSheet'
 import SettingsSheet from '../components/SettingsSheet'
 
-const COLORS = ['bg-indigo-500', 'bg-violet-500', 'bg-pink-500', 'bg-emerald-500', 'bg-amber-500', 'bg-sky-500', 'bg-rose-500', 'bg-teal-500']
-const colorFor  = (id)   => COLORS[id % COLORS.length]
-const initials  = (name) => name.split(' ').map(w => w[0]).join('').toUpperCase().slice(0, 2)
+const COLORS = ['bg-indigo-500','bg-violet-500','bg-pink-500','bg-emerald-500','bg-amber-500','bg-sky-500','bg-rose-500','bg-teal-500']
+const colorFor = (id)   => COLORS[id % COLORS.length]
+const initials = (name) => name.split(' ').map(w => w[0]).join('').toUpperCase().slice(0, 2)
+
+function fmtDur(secs) {
+  secs = Math.max(0, secs)
+  const h = Math.floor(secs / 3600)
+  const m = Math.floor((secs % 3600) / 60)
+  const s = secs % 60
+  if (h > 0) return `${h}:${String(m).padStart(2,'0')}:${String(s).padStart(2,'0')}`
+  return `${String(m).padStart(2,'0')}:${String(s).padStart(2,'0')}`
+}
+
+const toUTC = (s) => s ? new Date(/Z$|[+-]\d{2}/.test(s) ? s : s.replace(' ', 'T') + 'Z') : null
 
 export default function MainLayout() {
-  const { user, logout, activeSessionId, setActiveSession } = useApp()
+  const { user, logout, activeSessionId, activeSessionStartedAt, setActiveSession } = useApp()
   const navigate = useNavigate()
   const location = useLocation()
 
-  const isSwipeTab = ['/dashboard', '/planner', '/history'].includes(location.pathname)
-  const isTabRoute = isSwipeTab   // alias kept for clarity
-  const tabIndex   = location.pathname === '/history' ? 2
-                   : location.pathname === '/planner'  ? 1
-                   : 0
+  // Nav logic
+  // Swipe panels order: Planner=0  Dashboard=1  History=2
+  const isSwipeTab = ['/planner', '/dashboard', '/history'].includes(location.pathname)
+  const isSessionRoute = location.pathname.startsWith('/session/')
+  const tabIndex = location.pathname === '/history'   ? 2
+                 : location.pathname === '/dashboard'  ? 1
+                 : 0  // planner (default for all non-swipe routes too, but pill hidden)
+
   const tabIndexRef = useRef(tabIndex)
 
-  const [showStartModal,   setShowStartModal]   = useState(false)
-  const [showEndModal,     setShowEndModal]     = useState(false)
-  const [showSettings,     setShowSettings]     = useState(false)
-  const [showLogoutWarn,   setShowLogoutWarn]   = useState(false)
-  const [starting, setStarting] = useState(false)
-  const [ending,   setEnding]   = useState(false)
-  const [endSessionInfo, setEndSessionInfo] = useState(null)
+  const [showSettings,   setShowSettings]   = useState(false)
+  const [showLogoutWarn, setShowLogoutWarn] = useState(false)
+
+  // Session elapsed timer (shown in header when on session route)
+  const [sessionElapsed, setSessionElapsed] = useState(0)
+  useEffect(() => {
+    if (!activeSessionStartedAt) return
+    const start = toUTC(activeSessionStartedAt)
+    if (!start) return
+    const tick = () => setSessionElapsed(Math.max(0, Math.floor((Date.now() - start.getTime()) / 1000)))
+    tick()
+    const id = setInterval(tick, 1000)
+    return () => clearInterval(id)
+  }, [activeSessionStartedAt])
 
   // ── Swipe refs ─────────────────────────────────────────────────────────────
-  const navRef       = useRef(null)  // nav element — used for accurate width in setPillX
+  const navRef       = useRef(null)
   const wrapperRef   = useRef(null)
   const containerRef = useRef(null)
   const pillRef      = useRef(null)
 
-  const touchStartX   = useRef(0)
-  const touchStartY   = useRef(0)
-  const touchStartMs  = useRef(0)
-  const dirLocked     = useRef(null)
-  const swipeActive   = useRef(false)
+  const touchStartX  = useRef(0)
+  const touchStartY  = useRef(0)
+  const touchStartMs = useRef(0)
+  const dirLocked    = useRef(null)
+  const swipeActive  = useRef(false)
 
   useEffect(() => { tabIndexRef.current = tabIndex }, [tabIndex])
 
-  // Snap container to tab position (3 panels → 33.333% each)
+  // Snap container — 3 panels of 33.333% each
   const snapTo = (idx, animate) => {
     if (!containerRef.current) return
     containerRef.current.style.transition = animate
@@ -56,17 +77,17 @@ export default function MainLayout() {
     containerRef.current.style.transform = `translateX(${-(idx * 100) / 3}%)`
   }
 
-  // Move pill — nav layout: [Dashboard] [center w-20] [Planner] [History]
-  // 3 flex-1 items → each = (W-80)/3
+  // Pill position: nav layout is [Planner flex-1] [circle w-20] [History flex-1]
+  // Positions: Planner=0, Dashboard=1 (under circle), History=2
   const setPillX = (progress, animate) => {
     const pill = pillRef.current
     if (!pill) return
     const W    = navRef.current?.offsetWidth || window.innerWidth
-    const each = (W - 80) / 3
+    const each = (W - 80) / 2
     const positions = [
-      each / 2,               // 0: Dashboard
-      each + 80 + each / 2,   // 1: Planner
-      each + 80 + each + each / 2,  // 2: History
+      each / 2,               // 0: Planner
+      W / 2,                  // 1: Dashboard (center of circle)
+      each + 80 + each / 2,   // 2: History
     ]
     const lo = Math.max(0, Math.min(2, Math.floor(progress)))
     const hi = Math.min(2, lo + 1)
@@ -76,7 +97,6 @@ export default function MainLayout() {
     pill.style.left = `${px}px`
   }
 
-  // useLayoutEffect → fires before first paint → no flash of wrong position
   useLayoutEffect(() => {
     const isInit = !containerRef.current?.dataset.initialized
     snapTo(tabIndex, !isInit)
@@ -115,27 +135,21 @@ export default function MainLayout() {
       const screenW = window.innerWidth
       let dragPct   = (dx / screenW) * (100 / 3)
 
-      // Rubber band at edges
       if (dragPct > 0 && idx === 0) dragPct *= 0.12
       if (dragPct < 0 && idx === 2) dragPct *= 0.12
 
       const baseX    = -(idx * 100) / 3
       const progress = idx + (-dragPct / (100 / 3))
 
-      if (containerRef.current) {
+      if (containerRef.current)
         containerRef.current.style.transform = `translateX(${baseX + dragPct}%)`
-      }
       setPillX(progress, false)
     }
 
     const onEnd = (e) => {
       const idx = tabIndexRef.current
 
-      if (!swipeActive.current) {
-        snapTo(idx, true)
-        setPillX(idx, true)
-        return
-      }
+      if (!swipeActive.current) { snapTo(idx, true); setPillX(idx, true); return }
 
       const dx       = e.changedTouches[0].clientX - touchStartX.current
       const dt       = Math.max(Date.now() - touchStartMs.current, 1)
@@ -150,7 +164,7 @@ export default function MainLayout() {
       if (dx > 0 && idx > 0 && (Math.abs(dx) > DIST_THRESHOLD || velocity > VEL_THRESHOLD)) newTab = idx - 1
 
       if (newTab !== idx) {
-        navigate(newTab === 0 ? '/dashboard' : newTab === 1 ? '/planner' : '/history')
+        navigate(newTab === 0 ? '/planner' : newTab === 1 ? '/dashboard' : '/history')
       } else {
         snapTo(idx, true)
         setPillX(idx, true)
@@ -162,7 +176,6 @@ export default function MainLayout() {
     wrapper.addEventListener('touchstart', onStart, { passive: true  })
     wrapper.addEventListener('touchmove',  onMove,  { passive: false })
     wrapper.addEventListener('touchend',   onEnd,   { passive: true  })
-
     return () => {
       wrapper.removeEventListener('touchstart', onStart)
       wrapper.removeEventListener('touchmove',  onMove)
@@ -170,108 +183,51 @@ export default function MainLayout() {
     }
   }, [navigate])
 
-  // ── Session helpers ────────────────────────────────────────────────────────
-  useEffect(() => {
-    if (!showEndModal || !activeSessionId) return
-    setEndSessionInfo(null)
-    api.getSession(activeSessionId).then(s => setEndSessionInfo(s)).catch(() => {})
-  }, [showEndModal])
-
-  const fmtElapsed = (startedAt) => {
-    if (!startedAt) return ''
-    const start = new Date(/Z$|[+-]\d{2}/.test(startedAt) ? startedAt : startedAt.replace(' ', 'T') + 'Z')
-    const secs = Math.floor((Date.now() - start.getTime()) / 1000)
-    const h = Math.floor(secs / 3600)
-    const m = Math.floor((secs % 3600) / 60)
-    const s = secs % 60
-    if (h > 0) return `${h}:${String(m).padStart(2,'0')}:${String(s).padStart(2,'0')}`
-    return `${String(m).padStart(2,'0')}:${String(s).padStart(2,'0')}`
-  }
-
   useEffect(() => {
     if (!user) navigate('/', { replace: true })
   }, [user])
 
   if (!user) return null
 
-  const handleCenterPress = () => {
-    if (activeSessionId) {
-      navigate(`/session/${activeSessionId}`)
-    } else {
-      setShowStartModal(true)
-    }
-  }
-
-  const handleEndSession = async () => {
-    setEnding(true)
-    try {
-      const session = endSessionInfo || await api.getSession(activeSessionId)
-      if (!session.sets || session.sets.length === 0) {
-        await api.deleteSession(activeSessionId)
-      } else {
-        await api.endSession(activeSessionId)
-      }
-      setActiveSession(null)
-      setShowEndModal(false)
-      setEndSessionInfo(null)
-      navigate('/dashboard')
-    } catch (e) {
-      alert(e.message)
-    } finally {
-      setEnding(false)
-    }
-  }
-
-  const handleStartSession = async () => {
-    setStarting(true)
-    try {
-      const session = await api.startSession(user.id)
-      setActiveSession(session.id)
-      setShowStartModal(false)
-      navigate(`/session/${session.id}`)
-    } catch (e) {
-      alert(e.message)
-    } finally {
-      setStarting(false)
-    }
-  }
-
   return (
     <div className="flex flex-col h-full bg-slate-900">
 
-      {/* ── Static shared header — only for swipe tabs ── */}
-      {isSwipeTab && (
-        <div className="flex-shrink-0 px-4 pt-6 pb-3 flex items-center justify-between">
-          <div className="flex items-center gap-3">
-            <button
-              onClick={() => setShowSettings(true)}
-              className={`w-10 h-10 rounded-xl ${colorFor(user.id)} flex items-center justify-center font-bold text-white text-xs overflow-hidden flex-shrink-0 active:scale-95 transition-transform`}
-              title="Ajustes"
-            >
-              {user.avatar
-                ? <img src={user.avatar} alt={user.name} className="w-full h-full rounded-xl object-cover" />
-                : initials(user.name)
-              }
-            </button>
+      {/* ── Shared header (always visible) ── */}
+      <div className="flex-shrink-0 px-4 pt-6 pb-3 flex items-center justify-between">
+        <div className="flex items-center gap-3">
+          <button
+            onClick={() => setShowSettings(true)}
+            className={`w-10 h-10 rounded-xl ${colorFor(user.id)} flex items-center justify-center font-bold text-white text-xs overflow-hidden flex-shrink-0 active:scale-95 transition-transform`}
+          >
+            {user.avatar
+              ? <img src={user.avatar} alt={user.name} className="w-full h-full rounded-xl object-cover" />
+              : initials(user.name)}
+          </button>
+          {isSessionRoute ? (
+            <div>
+              <p className="text-slate-400 text-xs">Sesión activa</p>
+              <p className="text-white font-mono font-bold leading-tight">{fmtDur(sessionElapsed)}</p>
+            </div>
+          ) : (
             <div>
               <p className="text-slate-400 text-xs">Bienvenido,</p>
               <h1 className="text-white font-bold leading-tight">{user.name}</h1>
             </div>
-          </div>
-          <button
-            onClick={() => activeSessionId ? setShowLogoutWarn(true) : logout()}
-            className="flex items-center gap-1.5 px-2 py-2 text-slate-500 hover:text-white transition-colors"
-          >
-            <LogOut size={16} />
-            <span className="text-xs font-medium">Salir</span>
-          </button>
+          )}
         </div>
-      )}
+        <button
+          onClick={() => activeSessionId ? setShowLogoutWarn(true) : logout()}
+          className="flex items-center gap-1.5 px-2 py-2 text-slate-500 hover:text-white transition-colors"
+        >
+          <LogOut size={16} />
+          <span className="text-xs font-medium">Salir</span>
+        </button>
+      </div>
 
-      {/* ── Main content area ── */}
+      {/* ── Main content ── */}
       <div className="flex-1 overflow-hidden relative">
 
-        {/* Two-panel swipe container — Dashboard + History */}
+        {/* Swipe container: [Planner | Dashboard | History] */}
         <div
           ref={wrapperRef}
           className="absolute inset-0"
@@ -282,10 +238,10 @@ export default function MainLayout() {
             style={{ display: 'flex', width: '300%', height: '100%', willChange: 'transform' }}
           >
             <div style={{ width: '33.333%', height: '100%', overflowY: 'auto', overflowX: 'hidden' }}>
-              <Dashboard />
+              <Planner />
             </div>
             <div style={{ width: '33.333%', height: '100%', overflowY: 'auto', overflowX: 'hidden' }}>
-              <Planner />
+              <Dashboard />
             </div>
             <div style={{ width: '33.333%', height: '100%', overflowY: 'auto', overflowX: 'hidden' }}>
               <History />
@@ -293,7 +249,7 @@ export default function MainLayout() {
           </div>
         </div>
 
-        {/* Outlet — Planner, Session, Import … */}
+        {/* Outlet: Session, Import, … */}
         {!isSwipeTab && <Outlet />}
 
       </div>
@@ -304,7 +260,7 @@ export default function MainLayout() {
         className="flex-shrink-0 bg-slate-900 border-t border-slate-800 safe-bottom"
         style={{ overflow: 'visible', position: 'relative' }}
       >
-        {/* Sliding pill — position set entirely by JS (setPillX) */}
+        {/* Sliding pill */}
         <div
           ref={pillRef}
           style={{
@@ -322,21 +278,21 @@ export default function MainLayout() {
 
         <div className="flex items-end h-16">
 
+          {/* Planificador */}
           <NavLink
-            to="/dashboard"
+            to="/planner"
             className={({ isActive }) =>
               `flex-1 flex flex-col items-center gap-1 py-3 text-xs font-medium transition-colors ${
                 isActive ? 'text-indigo-400' : 'text-slate-500 hover:text-slate-300'
               }`
             }
           >
-            <LayoutDashboard size={22} />
-            Dashboard
+            <CalendarDays size={22} />
+            Planif.
           </NavLink>
 
-          {/* ── Center session button ── */}
+          {/* ── Center circle = Inicio ── */}
           <div className="w-20 flex-shrink-0 flex justify-center" style={{ position: 'relative', height: '64px' }}>
-
             <div
               style={{
                 position:     'absolute',
@@ -348,8 +304,8 @@ export default function MainLayout() {
               }}
             >
               <button
-                onClick={handleCenterPress}
-                aria-label={activeSessionId ? 'Rutina activa' : 'Iniciar rutina'}
+                onClick={() => navigate('/dashboard')}
+                aria-label="Inicio"
                 style={{
                   width:          '100%',
                   height:         '100%',
@@ -388,18 +344,7 @@ export default function MainLayout() {
             </div>
           </div>
 
-          <NavLink
-            to="/planner"
-            className={({ isActive }) =>
-              `flex-1 flex flex-col items-center gap-1 py-3 text-xs font-medium transition-colors ${
-                isActive ? 'text-indigo-400' : 'text-slate-500 hover:text-slate-300'
-              }`
-            }
-          >
-            <CalendarDays size={22} />
-            Planif.
-          </NavLink>
-
+          {/* Progreso */}
           <NavLink
             to="/history"
             className={({ isActive }) =>
@@ -415,65 +360,23 @@ export default function MainLayout() {
         </div>
       </nav>
 
-      {/* ── End session modal ── */}
-      {showEndModal && (
-        <BottomSheet
-          onClose={() => { setShowEndModal(false); setEndSessionInfo(null) }}
-          locked={ending}
-        >
-          {() => (
-            <div className="px-6 pb-6 pt-2 space-y-5">
-              <div className="flex items-center gap-4">
-                <div className="w-12 h-12 rounded-2xl bg-red-500/15 flex items-center justify-center flex-shrink-0">
-                  <Activity size={22} className="text-red-400" />
-                </div>
-                <div>
-                  <h2 className="text-white font-bold text-lg leading-tight">¿Finalizar sesión?</h2>
-                  <p className="text-slate-400 text-sm mt-0.5">
-                    {endSessionInfo
-                      ? `${fmtElapsed(endSessionInfo.started_at)} · ${endSessionInfo.sets?.length ?? 0} serie${(endSessionInfo.sets?.length ?? 0) !== 1 ? 's' : ''}`
-                      : '…'}
-                  </p>
-                </div>
-              </div>
-              <div className="grid grid-cols-2 gap-3">
-                <button
-                  onClick={() => { setShowEndModal(false); setEndSessionInfo(null); navigate(`/session/${activeSessionId}`) }}
-                  disabled={ending}
-                  className="py-3.5 bg-slate-700 hover:bg-slate-600 disabled:opacity-50 text-white rounded-xl font-semibold transition-colors"
-                >Seguir</button>
-                <button
-                  onClick={handleEndSession}
-                  disabled={ending}
-                  className="py-3.5 bg-red-600 hover:bg-red-500 disabled:opacity-60 text-white rounded-xl font-semibold transition-colors"
-                >{ending ? 'Finalizando…' : 'Finalizar'}</button>
-              </div>
-            </div>
-          )}
-        </BottomSheet>
-      )}
-
       {/* ── Settings sheet ── */}
       {showSettings && <SettingsSheet onClose={() => setShowSettings(false)} />}
 
-      {/* ── Logout warning (active session) ── */}
+      {/* ── Logout warning ── */}
       {showLogoutWarn && (
         <BottomSheet onClose={() => setShowLogoutWarn(false)}>
           {({ dismiss }) => (
             <div className="px-6 pb-6 pt-2 space-y-5">
               <div>
                 <h2 className="text-white font-bold text-lg">Tienes una sesión activa</h2>
-                <p className="text-slate-400 text-sm mt-1">
-                  ¿Qué quieres hacer con la sesión en curso?
-                </p>
+                <p className="text-slate-400 text-sm mt-1">¿Qué quieres hacer con la sesión en curso?</p>
               </div>
               <div className="space-y-2">
                 <button
                   onClick={() => { dismiss(); navigate(`/session/${activeSessionId}`) }}
                   className="w-full py-3.5 bg-slate-700 hover:bg-slate-600 text-white rounded-xl font-semibold transition-colors"
-                >
-                  Seguir entrenando
-                </button>
+                >Seguir entrenando</button>
                 <button
                   onClick={async () => {
                     try {
@@ -485,49 +388,11 @@ export default function MainLayout() {
                     logout()
                   }}
                   className="w-full py-3.5 bg-indigo-600 hover:bg-indigo-500 text-white rounded-xl font-semibold transition-colors"
-                >
-                  Finalizar sesión y salir
-                </button>
+                >Finalizar sesión y salir</button>
                 <button
                   onClick={() => { logout(); dismiss() }}
                   className="w-full py-3 text-slate-500 hover:text-slate-300 text-sm transition-colors"
-                >
-                  Salir sin finalizar
-                </button>
-              </div>
-            </div>
-          )}
-        </BottomSheet>
-      )}
-
-      {/* ── Start session modal ── */}
-      {showStartModal && (
-        <BottomSheet
-          onClose={() => setShowStartModal(false)}
-          locked={starting}
-        >
-          {() => (
-            <div className="px-6 pb-6 pt-2 space-y-5">
-              <div className="flex items-center gap-4">
-                <div className="w-12 h-12 rounded-2xl bg-emerald-500/15 flex items-center justify-center flex-shrink-0">
-                  <Activity size={22} className="text-emerald-400" />
-                </div>
-                <div>
-                  <h2 className="text-white font-bold text-lg leading-tight">¿Iniciar sesión de hoy?</h2>
-                  <p className="text-slate-400 text-sm mt-0.5">Se registrará como nueva sesión de entrenamiento</p>
-                </div>
-              </div>
-              <div className="grid grid-cols-2 gap-3">
-                <button
-                  onClick={() => setShowStartModal(false)}
-                  disabled={starting}
-                  className="py-3.5 bg-slate-700 hover:bg-slate-600 disabled:opacity-50 text-white rounded-xl font-semibold transition-colors"
-                >Cancelar</button>
-                <button
-                  onClick={handleStartSession}
-                  disabled={starting}
-                  className="py-3.5 bg-emerald-600 hover:bg-emerald-500 disabled:opacity-60 text-white rounded-xl font-semibold transition-colors"
-                >{starting ? 'Iniciando…' : 'Empezar'}</button>
+                >Salir sin finalizar</button>
               </div>
             </div>
           )}

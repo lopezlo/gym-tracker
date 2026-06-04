@@ -1,6 +1,6 @@
 import { useState, useEffect, useRef, useMemo } from 'react'
-import { useParams, useNavigate } from 'react-router-dom'
-import { Plus, Trash2, Clock, Dumbbell, CheckCircle, Calendar, ChevronRight, X } from 'lucide-react'
+import { useParams, useNavigate, useLocation } from 'react-router-dom'
+import { Plus, Trash2, Clock, Dumbbell, CheckCircle, ChevronRight, X } from 'lucide-react'
 import { api } from '../api/client'
 import { useApp } from '../context/AppContext'
 import ExerciseSelector from '../components/ExerciseSelector'
@@ -343,6 +343,7 @@ export default function Session() {
   const { id } = useParams()
   const { user, setActiveSession } = useApp()
   const navigate = useNavigate()
+  const location = useLocation()
 
   const [session, setSession]               = useState(null)
   const [sets, setSets]                     = useState([])
@@ -354,11 +355,10 @@ export default function Session() {
   const [ending, setEnding]                 = useState(false)
   const [newSetId, setNewSetId]             = useState(null)
   const [timerAnchor, setTimerAnchor]       = useState(null)
-  // Template loading
-  const [loadedTemplate, setLoadedTemplate] = useState(null)  // { type, exercises }
-  const [todayRoutines, setTodayRoutines]   = useState([])
-  const [sessionPlan, setSessionPlan]       = useState(null)
-  const [showRoutinePicker, setShowRoutinePicker] = useState(false)
+  // Template comes from Dashboard via location.state (set before session starts)
+  const [loadedTemplate, setLoadedTemplate] = useState(
+    () => location.state?.template ?? null
+  )
 
   const sessionElapsed = useTimer(session?.started_at)
 
@@ -367,41 +367,18 @@ export default function Session() {
       .then(data => {
         setSession(data)
         setSets(data.sets || [])
-        setActiveSession(Number(id))
+        setActiveSession(Number(id), data.started_at)
         if (data.sets?.length > 0) {
           setTimerAnchor(data.sets[data.sets.length - 1].recorded_at)
         }
       })
       .catch(() => { setActiveSession(null); navigate('/dashboard') })
       .finally(() => setLoading(false))
-    // Fetch today's routines and session plan
-    const today = new Date().getDay()
-    api.getRoutines(user.id)
-      .then(rs => setTodayRoutines(rs.filter(r => r.days.includes(today))))
-      .catch(() => {})
-    api.getPlan(user.id).then(setSessionPlan).catch(() => {})
   }, [id])
 
   const handleSelectExercise = (ex) => {
     setShowSelector(false)
     setAddingTo(ex)
-  }
-
-  const handleLoadPlan = () => {
-    if (!sessionPlan) return
-    setLoadedTemplate({ type: 'plan', exercises: sessionPlan.exercises })
-    setSessionPlan(null)
-    api.deletePlan(user.id).catch(() => {})
-  }
-
-  const handleLoadRoutine = (routine) => {
-    setLoadedTemplate({ type: 'routine', exercises: routine.exercises })
-    setShowRoutinePicker(false)
-  }
-
-  const onClickRoutineButton = () => {
-    if (todayRoutines.length === 1) handleLoadRoutine(todayRoutines[0])
-    else setShowRoutinePicker(true)
   }
 
   const handleSetAdded = (newSet) => {
@@ -441,8 +418,6 @@ export default function Session() {
     ? loadedTemplate.exercises.filter(ex => !groupedSets.has(ex.id))
     : []
 
-  const showTemplateButtons = sets.length === 0 && (todayRoutines.length > 0 || sessionPlan)
-
   if (loading) return (
     <div className="h-full flex items-center justify-center bg-slate-900">
       <div className="w-8 h-8 border-2 border-indigo-500 border-t-transparent rounded-full animate-spin" />
@@ -452,58 +427,19 @@ export default function Session() {
   return (
     <div className="h-full flex flex-col bg-slate-900 page-in">
 
-      {/* ── Header ── */}
-      <div className="flex-shrink-0 px-4 pt-6 pb-3 flex items-start justify-between gap-3">
-        <div className="min-w-0">
-          <p className="text-slate-400 text-xs mb-0.5">Sesión activa</p>
-          <p className="text-white font-mono font-bold text-xl">{fmtDur(sessionElapsed)}</p>
-          <RestTimer lastSetAt={timerAnchor} />
-        </div>
+      {/* ── Session subheader: rest timer + finalize ── */}
+      <div className="flex-shrink-0 px-4 py-3 flex items-center justify-between gap-3 border-b border-slate-800">
+        <RestTimer lastSetAt={timerAnchor} />
         <button
           onClick={() => setShowEndConfirm(true)}
-          className="mt-1 px-4 py-2 bg-red-600 hover:bg-red-500 text-white text-sm font-semibold rounded-xl transition-colors flex-shrink-0"
+          className="px-3 py-1.5 bg-red-600 hover:bg-red-500 text-white text-xs font-semibold rounded-lg transition-colors flex-shrink-0"
         >
-          Finalizar sesión
+          Finalizar
         </button>
       </div>
 
       {/* ── Exercise cards ── */}
       <div className="flex-1 overflow-y-auto no-scrollbar px-4 pb-4 space-y-3">
-
-        {/* Template load buttons — only when session is empty */}
-        {showTemplateButtons && (
-          <div className="space-y-2 pt-1">
-            {sessionPlan && (
-              <button
-                onClick={handleLoadPlan}
-                className="w-full flex items-center gap-3 px-4 py-3.5 bg-emerald-500/10 border border-emerald-500/25 hover:bg-emerald-500/20 rounded-2xl transition-colors text-left"
-              >
-                <CheckCircle size={18} className="text-emerald-400 flex-shrink-0" />
-                <div className="min-w-0">
-                  <p className="text-emerald-300 font-semibold text-sm">Cargar próxima sesión</p>
-                  <p className="text-emerald-700 text-xs">{sessionPlan.exercises.length} ejercicios planificados</p>
-                </div>
-              </button>
-            )}
-            {todayRoutines.length > 0 && (
-              <button
-                onClick={onClickRoutineButton}
-                className="w-full flex items-center gap-3 px-4 py-3.5 bg-indigo-500/10 border border-indigo-500/25 hover:bg-indigo-500/20 rounded-2xl transition-colors text-left"
-              >
-                <Calendar size={18} className="text-indigo-400 flex-shrink-0" />
-                <div className="flex-1 min-w-0">
-                  <p className="text-slate-400 text-xs">Hoy toca rutina de:</p>
-                  <p className="text-indigo-300 font-semibold text-sm truncate">
-                    {todayRoutines.length === 1 ? todayRoutines[0].name : `${todayRoutines.length} rutinas disponibles`}
-                  </p>
-                </div>
-                <span className="text-indigo-400 text-xs font-semibold flex-shrink-0">
-                  {todayRoutines.length > 1 ? 'Elegir' : 'Cargar'}
-                </span>
-              </button>
-            )}
-          </div>
-        )}
 
         {/* Empty state (no sets, no template) */}
         {groupedSets.size === 0 && ghostExercises.length === 0 && (
@@ -572,28 +508,6 @@ export default function Session() {
         />
       )}
 
-      {showRoutinePicker && (
-        <BottomSheet onClose={() => setShowRoutinePicker(false)}>
-          {({ dismiss }) => (
-            <div className="px-5 pb-8 pt-2 space-y-3">
-              <h2 className="text-white font-bold text-base mb-1">Rutinas de hoy</h2>
-              {todayRoutines.map(r => (
-                <button
-                  key={r.id}
-                  onClick={() => { handleLoadRoutine(r); dismiss() }}
-                  className="w-full flex items-center gap-3 px-4 py-3.5 bg-slate-800 hover:bg-slate-700 rounded-2xl text-left transition-colors"
-                >
-                  <div className="flex-1 min-w-0">
-                    <p className="text-white font-semibold text-sm">{r.name}</p>
-                    <p className="text-slate-500 text-xs">{r.exercises.length} ejercicio{r.exercises.length !== 1 ? 's' : ''}</p>
-                  </div>
-                  <ChevronRight size={16} className="text-slate-600 flex-shrink-0" />
-                </button>
-              ))}
-            </div>
-          )}
-        </BottomSheet>
-      )}
 
       {addingTo && (
         <AddSetSheet

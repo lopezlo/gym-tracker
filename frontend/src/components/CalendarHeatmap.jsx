@@ -2,19 +2,24 @@ import dayjs from 'dayjs'
 import { useState } from 'react'
 import { ChevronLeft, ChevronRight } from 'lucide-react'
 
-export default function CalendarHeatmap({ data }) {
-  const [tooltip, setTooltip] = useState(null)
+export default function CalendarHeatmap({ data, year: yearProp, onYearChange }) {
   const currentYear = dayjs().year()
-  const [year, setYear] = useState(currentYear)
 
-  // Normalize date keys
+  // Accept controlled year (from parent) or manage internally
+  const [yearInternal, setYearInternal] = useState(currentYear)
+  const year = yearProp ?? yearInternal
+  const setYear = (fn) => {
+    const next = typeof fn === 'function' ? fn(year) : fn
+    setYearInternal(next)
+    onYearChange?.(next)
+  }
+
+  const [tooltip, setTooltip] = useState(null)
+
   const dataMap = Object.fromEntries(data.map(d => [String(d.date).substring(0, 10), d]))
-
-  const today = dayjs()
+  const today     = dayjs()
   const yearStart = dayjs(`${year}-01-01`)
-  const yearEnd = dayjs(`${year}-12-31`)
-
-  // Start grid from the Sunday on or before Jan 1
+  const yearEnd   = dayjs(`${year}-12-31`)
   const gridStart = yearStart.subtract(yearStart.day(), 'day')
 
   const weeks = []
@@ -23,18 +28,22 @@ export default function CalendarHeatmap({ data }) {
     const week = []
     for (let d = 0; d < 7; d++) {
       const isBeforeStart = current.isBefore(yearStart)
-      const isAfterEnd = current.isAfter(yearEnd)
+      const isAfterEnd    = current.isAfter(yearEnd)
       week.push(isBeforeStart || isAfterEnd ? null : current.format('YYYY-MM-DD'))
       current = current.add(1, 'day')
     }
     weeks.push(week)
   }
 
-  // Max minutes for the displayed year only (relative intensity)
   const yearDataVals = data
     .filter(d => String(d.date).substring(0, 4) === String(year))
     .map(d => d.total_minutes)
   const maxMinutes = Math.max(...yearDataVals, 1)
+
+  // Year attendance count
+  const yearSessions = data
+    .filter(d => String(d.date).substring(0, 4) === String(year))
+    .reduce((sum, d) => sum + d.session_count, 0)
 
   const colorFor = (date) => {
     if (!date) return 'bg-transparent'
@@ -69,24 +78,30 @@ export default function CalendarHeatmap({ data }) {
 
   return (
     <div className="relative select-none">
-      {/* Year navigation */}
+      {/* Year navigation + attendance count */}
       <div className="flex items-center justify-between mb-3">
-        <button
-          onClick={() => setYear(y => y - 1)}
-          className="p-1.5 rounded-lg text-slate-500 hover:text-white hover:bg-slate-700 transition-colors"
-          aria-label="Año anterior"
-        >
-          <ChevronLeft size={16} />
-        </button>
-        <span className="text-slate-300 font-semibold text-sm">{year}</span>
-        <button
-          onClick={() => setYear(y => y + 1)}
-          disabled={year >= currentYear}
-          className="p-1.5 rounded-lg text-slate-500 hover:text-white hover:bg-slate-700 transition-colors disabled:opacity-30 disabled:cursor-not-allowed"
-          aria-label="Año siguiente"
-        >
-          <ChevronRight size={16} />
-        </button>
+        <span className="text-white font-bold text-sm">
+          {yearSessions}
+          <span className="text-slate-500 font-normal text-xs ml-1">
+            entreno{yearSessions !== 1 ? 's' : ''}
+          </span>
+        </span>
+        <div className="flex items-center gap-2">
+          <button
+            onClick={() => setYear(y => y - 1)}
+            className="p-1.5 rounded-lg text-slate-500 hover:text-white hover:bg-slate-700 transition-colors"
+          >
+            <ChevronLeft size={16} />
+          </button>
+          <span className="text-slate-300 font-semibold text-sm w-10 text-center">{year}</span>
+          <button
+            onClick={() => setYear(y => y + 1)}
+            disabled={year >= currentYear}
+            className="p-1.5 rounded-lg text-slate-500 hover:text-white hover:bg-slate-700 transition-colors disabled:opacity-30 disabled:cursor-not-allowed"
+          >
+            <ChevronRight size={16} />
+          </button>
+        </div>
       </div>
 
       {/* Month labels */}
@@ -135,7 +150,6 @@ export default function CalendarHeatmap({ data }) {
           )}
         </div>
       )}
-
     </div>
   )
 }

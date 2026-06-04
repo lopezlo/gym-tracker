@@ -3,6 +3,20 @@ import BottomSheet from './BottomSheet'
 
 const CHANGELOG = [
   {
+    version: '2.0.0',
+    date: '4 jun 2026',
+    changes: [
+      'Nuevo: Inicio rediseñado — lanzador de sesiones con carga de rutina/plan antes de empezar',
+      'Nuevo: Nav simplificada — Planificador · ⬤ Inicio · Progreso (con swipe entre los tres)',
+      'Nuevo: El círculo central es el Inicio — pulsa para lanzar o ver la sesión activa',
+      'Nuevo: Sesión activa con header compartido — timer visible en el header al entrenar',
+      'Nuevo: Pantalla de sesión con nav completa — puedes moverte entre tabs sin salir',
+      'Mejora: Progreso unificado — estadísticas + calendario + gráfico + histórico en un scroll',
+      'Mejora: Conteo de entrenamientos del año integrado en el calendario (se actualiza al cambiar año)',
+      'Mejora: El plan de próxima sesión se consume solo al iniciar, no al previsualizar',
+    ],
+  },
+  {
     version: '1.9.2',
     date: '3 jun 2026',
     changes: [
