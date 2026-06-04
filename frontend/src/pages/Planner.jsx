@@ -332,30 +332,43 @@ export default function Planner() {
               <p className="text-slate-600 text-xs mt-1">Crea tu primera rutina para empezar a planificar</p>
             </div>
           ) : (
-            <div className="space-y-3">
+            <div className="space-y-2">
               {routines.map(r => {
                 const isToday = r.days.includes(todayIdx)
+                const preview = r.exercises.slice(0, 3).map(e => e.name).join(', ') +
+                  (r.exercises.length > 3 ? '…' : '')
                 return (
                   <div
                     key={r.id}
-                    className={`bg-slate-800 rounded-2xl p-4 ${isToday ? 'ring-1 ring-indigo-500/40' : ''}`}
+                    className={`bg-slate-800 rounded-2xl px-4 py-3 flex items-center gap-3 ${isToday ? 'ring-1 ring-indigo-500/40' : ''}`}
                   >
-                    {/* Name + actions */}
-                    <div className="flex items-start justify-between gap-2 mb-2.5">
-                      <div className="min-w-0">
-                        <div className="flex items-center gap-2 flex-wrap">
-                          <h3 className="text-white font-semibold text-sm">{r.name}</h3>
-                          {isToday && (
-                            <span className="text-[10px] bg-indigo-500/20 text-indigo-400 px-2 py-0.5 rounded-full font-medium">
-                              hoy
-                            </span>
-                          )}
-                        </div>
-                        <p className="text-slate-500 text-xs mt-0.5">
-                          {r.exercises.length} ejercicio{r.exercises.length !== 1 ? 's' : ''}
-                        </p>
+                    {/* Name + exercises preview */}
+                    <div className="flex-1 min-w-0">
+                      <div className="flex items-center gap-1.5">
+                        <h3 className="text-white font-semibold text-sm truncate">{r.name}</h3>
+                        {isToday && (
+                          <span className="text-[9px] bg-indigo-500/20 text-indigo-400 px-1.5 py-0.5 rounded-full font-medium flex-shrink-0">hoy</span>
+                        )}
                       </div>
-                      <div className="flex gap-1 flex-shrink-0">
+                      <p className="text-slate-600 text-xs truncate mt-0.5">{preview || 'Sin ejercicios'}</p>
+                    </div>
+
+                    {/* Day bullets */}
+                    <div className="flex gap-0.5 flex-shrink-0">
+                      {DAYS.map((d, i) => (
+                        <span
+                          key={i}
+                          className={`w-[18px] h-[18px] rounded flex items-center justify-center text-[9px] font-bold ${
+                            r.days.includes(i)
+                              ? i === todayIdx ? 'bg-indigo-600 text-white' : 'bg-slate-600 text-slate-300'
+                              : 'text-slate-700'
+                          }`}
+                        >{d}</span>
+                      ))}
+                    </div>
+
+                    {/* Actions */}
+                    <div className="flex gap-0.5 flex-shrink-0">
                         <button onClick={() => setEditingRoutine(r)} className="p-1.5 text-slate-500 hover:text-white transition-colors">
                           <Edit2 size={14} />
                         </button>
@@ -363,42 +376,6 @@ export default function Planner() {
                           <Trash2 size={14} />
                         </button>
                       </div>
-                    </div>
-
-                    {/* Day chips */}
-                    <div className="flex gap-1 mb-3">
-                      {DAYS.map((d, i) => (
-                        <span
-                          key={i}
-                          className={`flex-1 text-center py-1.5 rounded-lg text-[10px] font-bold transition-colors ${
-                            r.days.includes(i)
-                              ? i === todayIdx
-                                ? 'bg-indigo-600 text-white'
-                                : 'bg-slate-700 text-slate-300'
-                              : 'text-slate-700'
-                          }`}
-                        >
-                          {d}
-                        </span>
-                      ))}
-                    </div>
-
-                    {/* Exercise preview */}
-                    <div className="space-y-1">
-                      {r.exercises.slice(0, 4).map((ex, i) => (
-                        <div key={ex.id} className="flex items-center gap-2 text-xs text-slate-400">
-                          <span className="text-slate-600 w-3 text-right flex-shrink-0">{i + 1}</span>
-                          {ex.type === 'time'
-                            ? <Clock size={11} className="text-amber-400 flex-shrink-0" />
-                            : <Dumbbell size={11} className="text-indigo-400 flex-shrink-0" />}
-                          <span className="truncate">{ex.name}</span>
-                        </div>
-                      ))}
-                      {r.exercises.length > 4 && (
-                        <p className="text-slate-600 text-xs pl-5">
-                          +{r.exercises.length - 4} más
-                        </p>
-                      )}
                     </div>
                   </div>
                 )

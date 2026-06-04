@@ -1,4 +1,4 @@
-import { useState, useEffect } from 'react'
+import { useState, useEffect, useRef } from 'react'
 import { useNavigate, useLocation } from 'react-router-dom'
 import { Plus, Calendar, CheckCircle, Dumbbell, Clock, ChevronRight, X, Activity } from 'lucide-react'
 import { api } from '../api/client'
@@ -23,6 +23,8 @@ function fmtDur(secs) {
 export default function Dashboard() {
   const { user, activeSessionId, activeSessionStartedAt, setActiveSession } = useApp()
   const navigate  = useNavigate()
+  const location  = useLocation()
+  const isActive  = location.pathname === '/dashboard'
 
   const [todayRoutines, setTodayRoutines] = useState([])
   const [sessionPlan,   setSessionPlan]   = useState(null)
@@ -38,7 +40,9 @@ export default function Dashboard() {
   const today    = dayjs()
 
   useEffect(() => {
+    if (!isActive) return   // only fetch when this tab is visible
     const todayDay = new Date().getDay()
+    setLoading(true)
     Promise.all([
       api.getRoutines(user.id),
       api.getPlan(user.id).catch(() => null),
@@ -46,7 +50,7 @@ export default function Dashboard() {
       setTodayRoutines(rs.filter(r => r.days.includes(todayDay)))
       setSessionPlan(p)
     }).finally(() => setLoading(false))
-  }, [user.id])
+  }, [user.id, isActive])
 
   // Fetch active session details for the "session active" view
   useEffect(() => {
@@ -182,7 +186,7 @@ export default function Dashboard() {
 
         {/* Date */}
         <div className="mb-6">
-          <p className="text-slate-400 text-sm capitalize">
+          <p className="text-slate-400 text-sm">
             {DAY_NAMES[todayIdx]}, {today.format('D [de] MMMM')}
           </p>
         </div>

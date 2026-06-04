@@ -3,6 +3,15 @@ import BottomSheet from './BottomSheet'
 
 const CHANGELOG = [
   {
+    version: '2.0.1',
+    date: '4 jun 2026',
+    changes: [
+      'Mejora: Tarjetas de rutinas compactas — nombre + preview + bullets de días + acciones en una sola fila',
+      'Fixed: "de" en la fecha del Inicio en minúsculas',
+      'Fixed: Plan de próxima sesión no aparecía en el Inicio hasta recargar (refetch al navegar al tab)',
+    ],
+  },
+  {
     version: '2.0.0',
     date: '4 jun 2026',
     changes: [
