@@ -3,6 +3,15 @@ import BottomSheet from './BottomSheet'
 
 const CHANGELOG = [
   {
+    version: '2.0.2',
+    date: '4 jun 2026',
+    changes: [
+      'Mejora: Nav reordenada — Sesión (círculo izquierda) · Plan · Progreso',
+      'Mejora: "Planif." renombrado a "Plan"',
+      'Mejora: Cronómetro de sesión activa visible en todas las ventanas del header',
+    ],
+  },
+  {
     version: '2.0.1',
     date: '4 jun 2026',
     changes: [

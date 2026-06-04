@@ -30,12 +30,12 @@ export default function MainLayout() {
   const location = useLocation()
 
   // Nav logic
-  // Swipe panels order: Planner=0  Dashboard=1  History=2
+  // Swipe panels order: Dashboard=0  Planner=1  History=2
   const isSwipeTab = ['/planner', '/dashboard', '/history'].includes(location.pathname)
   const isSessionRoute = location.pathname.startsWith('/session/')
-  const tabIndex = location.pathname === '/history'   ? 2
-                 : location.pathname === '/dashboard'  ? 1
-                 : 0  // planner (default for all non-swipe routes too, but pill hidden)
+  const tabIndex = location.pathname === '/history'  ? 2
+                 : location.pathname === '/planner'   ? 1
+                 : 0  // dashboard
 
   const tabIndexRef = useRef(tabIndex)
 
@@ -77,17 +77,17 @@ export default function MainLayout() {
     containerRef.current.style.transform = `translateX(${-(idx * 100) / 3}%)`
   }
 
-  // Pill position: nav layout is [Planner flex-1] [circle w-20] [History flex-1]
-  // Positions: Planner=0, Dashboard=1 (under circle), History=2
+  // Pill position: nav layout is [Circle w-20] [Plan flex-1] [Progreso flex-1]
+  // Positions: Dashboard=0 (under circle), Plan=1, Progreso=2
   const setPillX = (progress, animate) => {
     const pill = pillRef.current
     if (!pill) return
     const W    = navRef.current?.offsetWidth || window.innerWidth
     const each = (W - 80) / 2
     const positions = [
-      each / 2,               // 0: Planner
-      W / 2,                  // 1: Dashboard (center of circle)
-      each + 80 + each / 2,   // 2: History
+      40,                     // 0: Dashboard (center of circle w-20)
+      80 + each / 2,          // 1: Plan
+      80 + each + each / 2,   // 2: Progreso
     ]
     const lo = Math.max(0, Math.min(2, Math.floor(progress)))
     const hi = Math.min(2, lo + 1)
@@ -164,7 +164,7 @@ export default function MainLayout() {
       if (dx > 0 && idx > 0 && (Math.abs(dx) > DIST_THRESHOLD || velocity > VEL_THRESHOLD)) newTab = idx - 1
 
       if (newTab !== idx) {
-        navigate(newTab === 0 ? '/planner' : newTab === 1 ? '/dashboard' : '/history')
+        navigate(newTab === 0 ? '/dashboard' : newTab === 1 ? '/planner' : '/history')
       } else {
         snapTo(idx, true)
         setPillX(idx, true)
@@ -203,7 +203,7 @@ export default function MainLayout() {
               ? <img src={user.avatar} alt={user.name} className="w-full h-full rounded-xl object-cover" />
               : initials(user.name)}
           </button>
-          {isSessionRoute ? (
+          {activeSessionId ? (
             <div>
               <p className="text-slate-400 text-xs">Sesión activa</p>
               <p className="text-white font-mono font-bold leading-tight">{fmtDur(sessionElapsed)}</p>
@@ -238,10 +238,10 @@ export default function MainLayout() {
             style={{ display: 'flex', width: '300%', height: '100%', willChange: 'transform' }}
           >
             <div style={{ width: '33.333%', height: '100%', overflowY: 'auto', overflowX: 'hidden' }}>
-              <Planner />
+              <Dashboard />
             </div>
             <div style={{ width: '33.333%', height: '100%', overflowY: 'auto', overflowX: 'hidden' }}>
-              <Dashboard />
+              <Planner />
             </div>
             <div style={{ width: '33.333%', height: '100%', overflowY: 'auto', overflowX: 'hidden' }}>
               <History />
@@ -278,20 +278,7 @@ export default function MainLayout() {
 
         <div className="flex items-end h-16">
 
-          {/* Planificador */}
-          <NavLink
-            to="/planner"
-            className={({ isActive }) =>
-              `flex-1 flex flex-col items-center gap-1 py-3 text-xs font-medium transition-colors ${
-                isActive ? 'text-indigo-400' : 'text-slate-500 hover:text-slate-300'
-              }`
-            }
-          >
-            <CalendarDays size={22} />
-            Planif.
-          </NavLink>
-
-          {/* ── Center circle = Inicio ── */}
+          {/* ── Circle = Inicio/Sesión (leftmost) ── */}
           <div className="w-20 flex-shrink-0 flex justify-center" style={{ position: 'relative', height: '64px' }}>
             <div
               style={{
@@ -343,6 +330,19 @@ export default function MainLayout() {
               </button>
             </div>
           </div>
+
+          {/* Plan */}
+          <NavLink
+            to="/planner"
+            className={({ isActive }) =>
+              `flex-1 flex flex-col items-center gap-1 py-3 text-xs font-medium transition-colors ${
+                isActive ? 'text-indigo-400' : 'text-slate-500 hover:text-slate-300'
+              }`
+            }
+          >
+            <CalendarDays size={22} />
+            Plan
+          </NavLink>
 
           {/* Progreso */}
           <NavLink
