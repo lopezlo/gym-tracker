@@ -77,17 +77,17 @@ export default function MainLayout() {
     containerRef.current.style.transform = `translateX(${-(idx * 100) / 3}%)`
   }
 
-  // Pill position: nav layout is [Circle w-20] [Plan flex-1] [Progreso flex-1]
-  // Positions: Dashboard=0 (under circle), Plan=1, Progreso=2
+  // Pill position: nav layout is 3 × flex-1 equal columns
+  // Dashboard=0, Plan=1, Progreso=2
   const setPillX = (progress, animate) => {
     const pill = pillRef.current
     if (!pill) return
     const W    = navRef.current?.offsetWidth || window.innerWidth
-    const each = (W - 80) / 2
+    const each = W / 3
     const positions = [
-      40,                     // 0: Dashboard (center of circle w-20)
-      80 + each / 2,          // 1: Plan
-      80 + each + each / 2,   // 2: Progreso
+      each / 2,           // 0: Dashboard (left third center)
+      each * 1.5,         // 1: Plan (middle third center)
+      each * 2.5,         // 2: Progreso (right third center)
     ]
     const lo = Math.max(0, Math.min(2, Math.floor(progress)))
     const hi = Math.min(2, lo + 1)
@@ -278,8 +278,8 @@ export default function MainLayout() {
 
         <div className="flex items-end h-16">
 
-          {/* ── Circle = Inicio/Sesión (leftmost) ── */}
-          <div className="w-20 flex-shrink-0 flex justify-center" style={{ position: 'relative', height: '64px' }}>
+          {/* ── Circle = Inicio/Sesión (leftmost, flex-1) ── */}
+          <div className="flex-1 flex justify-center" style={{ position: 'relative', height: '64px' }}>
             <div
               style={{
                 position:     'absolute',

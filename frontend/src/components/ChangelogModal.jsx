@@ -3,6 +3,13 @@ import BottomSheet from './BottomSheet'
 
 const CHANGELOG = [
   {
+    version: '2.0.3',
+    date: '4 jun 2026',
+    changes: [
+      'Fixed: Iconos del menú inferior centrados — las tres secciones usan flex-1 igual',
+    ],
+  },
+  {
     version: '2.0.2',
     date: '4 jun 2026',
     changes: [
