@@ -1,9 +1,10 @@
-import { useState, useEffect } from 'react'
+import { useState, useEffect, useRef, useCallback } from 'react'
 import { useNavigate } from 'react-router-dom'
 import { Plus, Dumbbell } from 'lucide-react'
 import { api } from '../api/client'
 import { useApp } from '../context/AppContext'
 import ChangelogModal from '../components/ChangelogModal'
+import PullToRefresh from '../components/PullToRefresh'
 
 const COLORS = [
   'bg-indigo-500', 'bg-violet-500', 'bg-pink-500', 'bg-emerald-500',
@@ -29,9 +30,15 @@ export default function Home() {
   const [error, setError]           = useState('')
   const [showChangelog, setShowChangelog] = useState(false)
   const [pressedUser, setPressedUser]    = useState(null)
+  const scrollRef = useRef(null)
 
   useEffect(() => {
     api.getUsers().then(setUsers).catch(() => {}).finally(() => setLoading(false))
+  }, [])
+
+  const handleRefresh = useCallback(async () => {
+    const list = await api.getUsers().catch(() => null)
+    if (list) setUsers(list)
   }, [])
 
   const handleSelect = (u) => { selectUser(u); navigate('/dashboard') }
@@ -56,7 +63,12 @@ export default function Home() {
   }
 
   return (
-    <div className="h-full bg-slate-900 flex flex-col items-center justify-center px-4 py-12 overflow-y-auto">
+    <PullToRefresh onRefresh={handleRefresh} scrollRef={scrollRef}>
+    <div
+      ref={scrollRef}
+      className="h-full bg-slate-900 flex flex-col items-center justify-center px-4 py-12 overflow-y-auto"
+      style={{ overscrollBehaviorY: 'none' }}
+    >
       <div className="w-full max-w-sm">
 
         {/* Logo */}
@@ -138,5 +150,6 @@ export default function Home() {
 
       {showChangelog && <ChangelogModal onClose={() => setShowChangelog(false)} />}
     </div>
+    </PullToRefresh>
   )
 }

@@ -1,17 +1,16 @@
 import { useState, useRef, useEffect } from 'react'
 import { ChevronDown } from 'lucide-react'
 
-const THRESHOLD  = 72    // px to trigger refresh
-const MAX_PULL   = 108   // max visual pull distance
-const RESISTANCE = 0.45  // dampen the pull (feels natural)
+const THRESHOLD  = 70    // px to trigger refresh
+const RESISTANCE = 0.42  // dampen the pull
 
 /**
- * Pull-to-refresh wrapper.
+ * Pull-to-refresh overlay — content stays fixed, only the indicator appears.
  *
  * Props:
- *   onRefresh  – async function called when user releases past THRESHOLD
- *   scrollRef  – ref to the actual scrollable element (to check scrollTop)
- *   children   – content to wrap (must include the scrollable element)
+ *   onRefresh  – async fn called when user releases past THRESHOLD
+ *   scrollRef  – ref to the scrollable element (to check scrollTop)
+ *   children   – content (NOT translated during pull)
  */
 export default function PullToRefresh({ onRefresh, scrollRef, children }) {
   const [pullY, setPullY] = useState(0)
@@ -34,7 +33,7 @@ export default function PullToRefresh({ onRefresh, scrollRef, children }) {
 
     const onStart = (e) => {
       const scrollEl = scrollRef?.current
-      if (scrollEl && scrollEl.scrollTop > 4) return   // not at top → ignore
+      if (scrollEl && scrollEl.scrollTop > 4) return
       startYRef.current = e.touches[0].clientY
       activeRef.current = true
     }
@@ -46,7 +45,7 @@ export default function PullToRefresh({ onRefresh, scrollRef, children }) {
       const dy = e.touches[0].clientY - startYRef.current
       if (dy <= 0) { activeRef.current = false; return }
       e.preventDefault()
-      const pull = Math.min(dy * RESISTANCE, MAX_PULL)
+      const pull = Math.min(dy * RESISTANCE, THRESHOLD * 1.4)
       update(pull, pull >= THRESHOLD ? 'ready' : 'pulling')
     }
 
@@ -73,48 +72,47 @@ export default function PullToRefresh({ onRefresh, scrollRef, children }) {
   }, [onRefresh, scrollRef])
 
   const isIdle   = phase === 'idle'
-  const indicY   = pullY - 36    // starts at -36 (hidden above), at full pull = 36
+  // Indicator slides from -36px (hidden above) to +14px (visible) as pull increases
+  const indicY   = Math.min((pullY / THRESHOLD) * 50 - 36, 14)
+  const opacity  = isIdle ? 0 : Math.min(pullY / 16, 1)
   const rotation = phase === 'ready' ? 180 : Math.min((pullY / THRESHOLD) * 180, 180)
-  const opacity  = Math.min(pullY / 18, 1)
 
   return (
     <div ref={wrapRef} style={{ position: 'relative', height: '100%', overflow: 'hidden' }}>
 
-      {/* ── Pull indicator ── */}
+      {/* ── Pull indicator — floats above content, content never moves ── */}
       <div style={{
         position:      'absolute',
-        top:           `${indicY}px`,
+        top:           `${isIdle ? -36 : indicY}px`,
         left:          '50%',
         transform:     'translateX(-50%)',
         opacity,
-        zIndex:        10,
+        zIndex:        20,
         pointerEvents: 'none',
-        transition:    isIdle ? 'top 280ms cubic-bezier(0.34,1.2,0.64,1), opacity 200ms' : 'none',
+        transition:    isIdle
+          ? 'top 260ms cubic-bezier(0.4,0,0.2,1), opacity 200ms'
+          : 'none',
       }}>
         {phase === 'refreshing' ? (
-          <div className="w-9 h-9 rounded-full bg-slate-800 border border-slate-700 shadow-xl flex items-center justify-center">
-            <div className="w-4 h-4 border-2 border-indigo-500 border-t-transparent rounded-full animate-spin" />
+          <div className="w-8 h-8 rounded-full bg-slate-800 border border-slate-700 shadow-lg flex items-center justify-center">
+            <div className="w-3.5 h-3.5 border-2 border-indigo-500 border-t-transparent rounded-full animate-spin" />
           </div>
         ) : (
-          <div className="w-9 h-9 rounded-full bg-slate-800 border border-slate-700 shadow-xl flex items-center justify-center">
+          <div className="w-8 h-8 rounded-full bg-slate-800 border border-slate-700 shadow-lg flex items-center justify-center">
             <ChevronDown
-              size={18}
+              size={16}
               className="text-slate-400"
               style={{
                 transform:  `rotate(${rotation}deg)`,
-                transition: phase === 'ready' ? 'transform 200ms' : 'none',
+                transition: phase === 'ready' ? 'transform 180ms' : 'none',
               }}
             />
           </div>
         )}
       </div>
 
-      {/* ── Content pushed down while pulling ── */}
-      <div style={{
-        transform:  `translateY(${pullY}px)`,
-        transition: isIdle ? 'transform 280ms cubic-bezier(0.34,1.2,0.64,1)' : 'none',
-        height:     '100%',
-      }}>
+      {/* ── Content — never translated ── */}
+      <div style={{ height: '100%' }}>
         {children}
       </div>
 
