@@ -31,6 +31,14 @@ function ChangeEntry({ text }) {
 
 const CHANGELOG = [
   {
+    version: '2.0.20',
+    date: '6 jun 2026',
+    changes: [
+      'Fixed: Artefacto visual al volver a sesión — wrapper oculto síncronamente antes del navigate',
+      'Fixed: Línea en el top al deslizar con sesión sin ejercicios (subheader condicional en SessionPreview)',
+    ],
+  },
+  {
     version: '2.0.19',
     date: '6 jun 2026',
     changes: [

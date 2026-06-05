@@ -179,7 +179,8 @@ export default function MainLayout() {
 
       if (newTab !== idx) {
         if (newTab === 0 && activeSessionIdRef.current) {
-          // Panel 0 (Dashboard) would redirect; go directly to session
+          // Hide wrapper immediately — don't wait for React's re-render to avoid 1-frame flash
+          if (wrapperRef.current) wrapperRef.current.style.display = 'none'
           navigate(`/session/${activeSessionIdRef.current}`)
         } else {
           navigate(newTab === 0 ? '/dashboard' : newTab === 1 ? '/planner' : '/history')
@@ -228,17 +229,18 @@ export default function MainLayout() {
     wrapper.style.transform  = `translateX(${screenW}px)`
     setTimeout(() => {
       wrapper.style.transition = ''
-      // Don't reset transform here — React will set display:none on next render.
-      // Transform cleanup happens in the isSwipeTab useEffect below (after display:none).
+      // Hide immediately before navigate — don't wait for React's async re-render
+      wrapper.style.display = 'none'
       navigate(target)
     }, 280)
   }, [activeSessionId, isSwipeTab, navigate])
 
-  // Clean up wrapper residual transform after React hides it (display:none)
-  useEffect(() => {
+  // Sync cleanup of wrapper transforms when leaving swipe tabs (before paint)
+  useLayoutEffect(() => {
     if (!isSwipeTab && wrapperRef.current) {
       wrapperRef.current.style.transform  = ''
       wrapperRef.current.style.transition = ''
+      // display:none is set by React's inline style — just clear residual transforms
     }
   }, [isSwipeTab])
 

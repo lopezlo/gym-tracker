@@ -77,18 +77,14 @@ function AddExerciseBtn() {
 export default function SessionPreview({ sessionId }) {
   const cache = sessionCache[sessionId]
 
-  // ── No cache yet — show skeleton ──────────────────────────────────────────
+  // ── No cache yet — show skeleton (no subheader: timerAnchor unknown) ────────
   if (!cache) {
     return (
       <div className="h-full flex flex-col bg-slate-900">
-        {/* Subheader placeholder (matches Session's rest timer bar) */}
-        <div className="flex-shrink-0 h-10 border-b border-slate-800" />
-
         <div className="flex-1 overflow-hidden px-4 pt-3 space-y-3">
           <SkeletonCard />
           <SkeletonCard />
         </div>
-
         <AddExerciseBtn />
       </div>
     )
@@ -105,7 +101,10 @@ export default function SessionPreview({ sessionId }) {
 
   return (
     <div className="h-full flex flex-col bg-slate-900">
-      <div className="flex-shrink-0 h-10 border-b border-slate-800" />
+      {/* Subheader only when timerAnchor exists — mirrors Session.jsx behavior */}
+      {cache.timerAnchor && (
+        <div className="flex-shrink-0 h-10 border-b border-slate-800" />
+      )}
 
       <div className="flex-1 overflow-y-auto no-scrollbar px-4 pt-3 pb-3 space-y-3">
         {groupedSets.size === 0 ? (
