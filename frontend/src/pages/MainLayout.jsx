@@ -41,8 +41,10 @@ export default function MainLayout() {
 
   const tabIndexRef = useRef(tabIndex)
 
-  const [showSettings,   setShowSettings]   = useState(false)
-  const [showLogoutWarn, setShowLogoutWarn] = useState(false)
+  const [showSettings,    setShowSettings]    = useState(false)
+  const [showLogoutWarn,  setShowLogoutWarn]  = useState(false)
+  const [showEndConfirm,  setShowEndConfirm]  = useState(false)
+  const [endingSession,   setEndingSession]   = useState(false)
 
   // Session elapsed timer (shown in header when on session route)
   const [sessionElapsed, setSessionElapsed] = useState(0)
@@ -186,6 +188,19 @@ export default function MainLayout() {
     }
   }, [navigate])
 
+  const handleEndSession = async () => {
+    setEndingSession(true)
+    try {
+      const s = await api.getSession(activeSessionId)
+      if (!s.sets?.length) await api.deleteSession(activeSessionId)
+      else                  await api.endSession(activeSessionId)
+      setActiveSession(null)
+      setShowEndConfirm(false)
+      navigate('/dashboard')
+    } catch (e) { alert(e.message) }
+    finally { setEndingSession(false) }
+  }
+
   useEffect(() => {
     if (!user) navigate('/', { replace: true })
   }, [user])
@@ -218,13 +233,22 @@ export default function MainLayout() {
             </div>
           )}
         </div>
-        <button
-          onClick={() => activeSessionId ? setShowLogoutWarn(true) : logout()}
-          className="flex items-center gap-1.5 px-2 py-2 text-slate-500 hover:text-white transition-colors"
-        >
-          <LogOut size={16} />
-          <span className="text-xs font-medium">Salir</span>
-        </button>
+        <div className="flex items-center gap-2">
+          {activeSessionId && (
+            <button
+              onClick={() => setShowEndConfirm(true)}
+              className="px-3 py-1.5 bg-red-600 hover:bg-red-500 text-white text-xs font-semibold rounded-lg transition-colors"
+            >
+              Finalizar entrenamiento
+            </button>
+          )}
+          <button
+            onClick={() => activeSessionId ? setShowLogoutWarn(true) : logout()}
+            className="flex items-center gap-1 px-2 py-2 text-slate-500 hover:text-white transition-colors"
+          >
+            <LogOut size={16} />
+          </button>
+        </div>
       </div>
 
       {/* ── Main content ── */}
@@ -289,19 +313,19 @@ export default function MainLayout() {
             borderRadius:         '9999px',
             border:               '1px solid rgba(255, 255, 255, 0.09)',
             boxShadow:            '0 -2px 24px rgba(0,0,0,0.35), 0 8px 32px rgba(0,0,0,0.4)',
-            overflow:             'hidden',
+            overflow:             'visible',
           }}
         >
 
           {/* ── Inicio / circle — LEFT, vertically centered inside pill ── */}
           <div className="flex-1 flex items-center justify-center">
-            <div style={{ animation: activeSessionId ? 'gym-pulse-active 2s ease-in-out infinite' : 'none', borderRadius: '9999px' }}>
+            <div style={{ animation: activeSessionId ? 'gym-pulse-active 1.5s ease-out infinite' : 'none', borderRadius: '9999px' }}>
               <button
                 onClick={() => navigate('/dashboard')}
                 aria-label="Inicio"
                 style={{
-                  width:          '46px',
-                  height:         '46px',
+                  width:          '52px',
+                  height:         '52px',
                   borderRadius:   '9999px',
                   border:         '2px solid rgba(0,0,0,0.35)',
                   overflow:       'hidden',
@@ -366,6 +390,37 @@ export default function MainLayout() {
         </div>
         {/* ─── end glass pill ─── */}
       </nav>
+
+      {/* ── End session confirm ── */}
+      {showEndConfirm && (
+        <BottomSheet onClose={() => setShowEndConfirm(false)} locked={endingSession}>
+          {() => (
+            <div className="px-6 pb-6 pt-2 space-y-5">
+              <div className="flex items-center gap-4">
+                <div className="w-12 h-12 rounded-2xl bg-red-500/15 flex items-center justify-center flex-shrink-0">
+                  <Activity size={22} className="text-red-400" />
+                </div>
+                <div>
+                  <h2 className="text-white font-bold text-lg leading-tight">¿Finalizar entrenamiento?</h2>
+                  <p className="text-slate-400 text-sm mt-0.5">La sesión quedará guardada en el historial.</p>
+                </div>
+              </div>
+              <div className="grid grid-cols-2 gap-3">
+                <button
+                  onClick={() => setShowEndConfirm(false)}
+                  disabled={endingSession}
+                  className="py-3.5 bg-slate-700 hover:bg-slate-600 disabled:opacity-50 text-white rounded-xl font-semibold transition-colors"
+                >Seguir</button>
+                <button
+                  onClick={handleEndSession}
+                  disabled={endingSession}
+                  className="py-3.5 bg-red-600 hover:bg-red-500 disabled:opacity-60 text-white rounded-xl font-semibold transition-colors"
+                >{endingSession ? 'Finalizando…' : 'Finalizar'}</button>
+              </div>
+            </div>
+          )}
+        </BottomSheet>
+      )}
 
       {/* ── Settings sheet ── */}
       {showSettings && <SettingsSheet onClose={() => setShowSettings(false)} />}

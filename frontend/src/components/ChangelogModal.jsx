@@ -3,6 +3,15 @@ import BottomSheet from './BottomSheet'
 
 const CHANGELOG = [
   {
+    version: '2.0.8',
+    date: '5 jun 2026',
+    changes: [
+      'Mejora: Círculo del menú más grande (52px) y pulso solo hacia afuera sin retracción',
+      'Nuevo: "Finalizar entrenamiento" en el header — disponible desde cualquier ventana',
+      'Fixed: Botón "Añadir ejercicio" ya no queda detrás del menú flotante',
+    ],
+  },
+  {
     version: '2.0.7',
     date: '5 jun 2026',
     changes: [

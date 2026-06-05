@@ -427,16 +427,12 @@ export default function Session() {
   return (
     <div className="h-full flex flex-col bg-slate-900 page-in">
 
-      {/* ── Session subheader: rest timer + finalize ── */}
-      <div className="flex-shrink-0 px-4 py-3 flex items-center justify-between gap-3 border-b border-slate-800">
-        <RestTimer lastSetAt={timerAnchor} />
-        <button
-          onClick={() => setShowEndConfirm(true)}
-          className="px-3 py-1.5 bg-red-600 hover:bg-red-500 text-white text-xs font-semibold rounded-lg transition-colors flex-shrink-0"
-        >
-          Finalizar
-        </button>
-      </div>
+      {/* ── Session subheader: rest timer ── */}
+      {timerAnchor && (
+        <div className="flex-shrink-0 px-4 py-2 border-b border-slate-800">
+          <RestTimer lastSetAt={timerAnchor} />
+        </div>
+      )}
 
       {/* ── Exercise cards ── */}
       <div className="flex-1 overflow-y-auto no-scrollbar px-4 space-y-3" style={{ paddingBottom: '112px' }}>
@@ -488,7 +484,7 @@ export default function Session() {
       </div>
 
       {/* ── Bottom CTA ── */}
-      <div className="flex-shrink-0 px-4 pb-6 pt-2">
+      <div className="flex-shrink-0 px-4 pt-2" style={{ paddingBottom: '96px' }}>
         <button
           onClick={() => setShowSelector(true)}
           className="w-full bg-indigo-600 hover:bg-indigo-500 active:scale-[0.98] text-white font-bold py-4 rounded-2xl flex items-center justify-center gap-2 transition-all"

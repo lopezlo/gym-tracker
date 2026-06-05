@@ -30,17 +30,11 @@ body {
 
 /* ── Session button animations ── */
 @keyframes gym-pulse-active {
-  0%, 100% {
-    transform: scale(1);
-    box-shadow:
-      0 0 0 0 rgba(52, 211, 153, 0.55),
-      0 6px 24px rgba(16, 185, 129, 0.40);
+  0% {
+    box-shadow: 0 0 0 0 rgba(52, 211, 153, 0.55);
   }
-  50% {
-    transform: scale(1.09);
-    box-shadow:
-      0 0 0 14px rgba(52, 211, 153, 0),
-      0 6px 24px rgba(16, 185, 129, 0.40);
+  100% {
+    box-shadow: 0 0 0 18px rgba(52, 211, 153, 0);
   }
 }
 
