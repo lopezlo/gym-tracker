@@ -3,6 +3,15 @@ import BottomSheet from './BottomSheet'
 
 const CHANGELOG = [
   {
+    version: '2.0.5',
+    date: '4 jun 2026',
+    changes: [
+      'Mejora: Círculo centrado en el menú flotante — Plan · ⬤ · Progreso',
+      'Mejora: Círculo apagado (morado muy tenue) cuando no estás en Inicio',
+      'Mejora: Contenido llega hasta abajo — nav flota sobre él con efecto cristal',
+    ],
+  },
+  {
     version: '2.0.4',
     date: '4 jun 2026',
     changes: [

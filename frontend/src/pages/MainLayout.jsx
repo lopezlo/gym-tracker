@@ -30,12 +30,14 @@ export default function MainLayout() {
   const location = useLocation()
 
   // Nav logic
-  // Swipe panels order: Dashboard=0  Planner=1  History=2
-  const isSwipeTab = ['/planner', '/dashboard', '/history'].includes(location.pathname)
+  // Swipe panels order: Planner=0  Dashboard=1  History=2
+  // Nav visual order:   [Plan]     [⬤ circle]   [Progreso]
+  const isSwipeTab    = ['/planner', '/dashboard', '/history'].includes(location.pathname)
   const isSessionRoute = location.pathname.startsWith('/session/')
-  const tabIndex = location.pathname === '/history'  ? 2
-                 : location.pathname === '/planner'   ? 1
-                 : 0  // dashboard
+  const onDashboard   = location.pathname === '/dashboard'
+  const tabIndex = location.pathname === '/history'   ? 2
+                 : location.pathname === '/dashboard'  ? 1
+                 : 0  // planner
 
   const tabIndexRef = useRef(tabIndex)
 
@@ -165,7 +167,7 @@ export default function MainLayout() {
       if (dx > 0 && idx > 0 && (Math.abs(dx) > DIST_THRESHOLD || velocity > VEL_THRESHOLD)) newTab = idx - 1
 
       if (newTab !== idx) {
-        navigate(newTab === 0 ? '/dashboard' : newTab === 1 ? '/planner' : '/history')
+        navigate(newTab === 0 ? '/planner' : newTab === 1 ? '/dashboard' : '/history')
       } else {
         snapTo(idx, true)
         setPillX(idx, true)
@@ -191,7 +193,7 @@ export default function MainLayout() {
   if (!user) return null
 
   return (
-    <div className="flex flex-col h-full bg-slate-900">
+    <div className="flex flex-col h-full bg-slate-900 relative">
 
       {/* ── Shared header (always visible) ── */}
       <div className="flex-shrink-0 px-4 pt-6 pb-3 flex items-center justify-between">
@@ -238,28 +240,32 @@ export default function MainLayout() {
             ref={containerRef}
             style={{ display: 'flex', width: '300%', height: '100%', willChange: 'transform' }}
           >
-            <div style={{ width: '33.333%', height: '100%', overflowY: 'auto', overflowX: 'hidden' }}>
-              <Dashboard />
-            </div>
-            <div style={{ width: '33.333%', height: '100%', overflowY: 'auto', overflowX: 'hidden' }}>
+            <div style={{ width: '33.333%', height: '100%', overflowY: 'auto', overflowX: 'hidden', paddingBottom: '96px' }}>
               <Planner />
             </div>
-            <div style={{ width: '33.333%', height: '100%', overflowY: 'auto', overflowX: 'hidden' }}>
+            <div style={{ width: '33.333%', height: '100%', overflowY: 'auto', overflowX: 'hidden', paddingBottom: '96px' }}>
+              <Dashboard />
+            </div>
+            <div style={{ width: '33.333%', height: '100%', overflowY: 'auto', overflowX: 'hidden', paddingBottom: '96px' }}>
               <History />
             </div>
           </div>
         </div>
 
         {/* Outlet: Session, Import, … */}
-        {!isSwipeTab && <Outlet />}
+        {!isSwipeTab && (
+          <div style={{ height: '100%', paddingBottom: '96px', boxSizing: 'border-box' }}>
+            <Outlet />
+          </div>
+        )}
 
       </div>
 
-      {/* ── Bottom nav — floating glass pill ── */}
+      {/* ── Bottom nav — floating glass pill, overlays content ── */}
       <nav
         ref={navRef}
-        className="flex-shrink-0 safe-bottom"
-        style={{ background: 'transparent', overflow: 'visible', position: 'relative', padding: '0 16px 12px' }}
+        className="safe-bottom"
+        style={{ background: 'transparent', overflow: 'visible', position: 'absolute', bottom: 0, left: 0, right: 0, zIndex: 40, padding: '0 16px 12px' }}
       >
         {/* Sliding pill indicator (inside pill bar, offset by padding) */}
         <div
@@ -291,7 +297,20 @@ export default function MainLayout() {
           }}
         >
 
-          {/* ── Circle = Inicio/Sesión (leftmost, flex-1) ── */}
+          {/* Plan */}
+          <NavLink
+            to="/planner"
+            className={({ isActive }) =>
+              `flex-1 flex flex-col items-center gap-1 py-3 text-xs font-medium transition-colors ${
+                isActive ? 'text-indigo-400' : 'text-slate-500 hover:text-slate-300'
+              }`
+            }
+          >
+            <CalendarDays size={22} />
+            Plan
+          </NavLink>
+
+          {/* ── Circle = Inicio/Sesión (center, flex-1) ── */}
           <div className="flex-1 flex justify-center" style={{ position: 'relative', height: '64px' }}>
             <div
               style={{
@@ -317,8 +336,8 @@ export default function MainLayout() {
                   alignItems:     'center',
                   justifyContent: 'center',
                   cursor:         'pointer',
-                  background:     activeSessionId ? 'transparent' : '#4f46e5',
-                  boxShadow:      activeSessionId ? 'none' : '0 4px 20px rgba(99,102,241,0.35)',
+                  background:     activeSessionId ? 'transparent' : onDashboard ? '#4f46e5' : 'rgba(99,102,241,0.18)',
+                  boxShadow:      activeSessionId ? 'none' : onDashboard ? '0 4px 20px rgba(99,102,241,0.35)' : 'none',
                   transition:     'transform 80ms',
                 }}
                 onPointerDown={e  => (e.currentTarget.style.transform = 'scale(0.93)')}
@@ -343,19 +362,6 @@ export default function MainLayout() {
               </button>
             </div>
           </div>
-
-          {/* Plan */}
-          <NavLink
-            to="/planner"
-            className={({ isActive }) =>
-              `flex-1 flex flex-col items-center gap-1 py-3 text-xs font-medium transition-colors ${
-                isActive ? 'text-indigo-400' : 'text-slate-500 hover:text-slate-300'
-              }`
-            }
-          >
-            <CalendarDays size={22} />
-            Plan
-          </NavLink>
 
           {/* Progreso */}
           <NavLink
