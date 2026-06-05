@@ -65,7 +65,7 @@ export default function MainLayout() {
   const navRef       = useRef(null)
   const wrapperRef   = useRef(null)
   const containerRef = useRef(null)
-  const pillRef      = useRef(null)
+  // pillRef removed — pill indicator eliminated
   const outletRef    = useRef(null)  // for swipe on non-swipe routes
 
   const touchStartX  = useRef(0)
@@ -85,26 +85,8 @@ export default function MainLayout() {
     containerRef.current.style.transform = `translateX(${-(idx * 100) / 3}%)`
   }
 
-  // Pill position: 3 equal thirds inside the pill bar (accounts for 16px side padding)
-  const NAV_PAD = 16
-  const setPillX = (progress, animate) => {
-    const pill = pillRef.current
-    if (!pill) return
-    const W     = navRef.current?.offsetWidth || window.innerWidth
-    const inner = W - NAV_PAD * 2
-    const each  = inner / 3
-    const positions = [
-      NAV_PAD + each / 2,         // 0: Dashboard
-      NAV_PAD + each * 1.5,       // 1: Plan
-      NAV_PAD + each * 2.5,       // 2: Progreso
-    ]
-    const lo = Math.max(0, Math.min(2, Math.floor(progress)))
-    const hi = Math.min(2, lo + 1)
-    const t  = progress - lo
-    const px = positions[lo] + (positions[hi] - positions[lo]) * t
-    pill.style.transition = animate ? 'left 280ms cubic-bezier(0.4,0,0.2,1)' : 'none'
-    pill.style.left = `${px}px`
-  }
+  // Pill removed — no-op stub kept to avoid refactoring all call sites
+  const setPillX = () => {}
 
   useLayoutEffect(() => {
     const isInit        = !containerRef.current?.dataset.initialized
@@ -129,7 +111,6 @@ export default function MainLayout() {
       dirLocked.current    = null
       swipeActive.current  = false
       if (containerRef.current) containerRef.current.style.transition = 'none'
-      if (pillRef.current)      pillRef.current.style.transition      = 'none'
     }
 
     const onMove = (e) => {
@@ -473,23 +454,18 @@ export default function MainLayout() {
       <nav
         ref={navRef}
         className="safe-bottom"
-        style={{ background: 'transparent', overflow: 'visible', position: 'absolute', bottom: 0, left: 0, right: 0, zIndex: 40, padding: '0 16px 12px' }}
+        style={{
+          background: 'transparent',
+          overflow:   'visible',
+          position:   'absolute',
+          bottom:     0,
+          left:       '50%',
+          transform:  'translateX(-50%)',
+          width:      'clamp(250px, 58%, 380px)',
+          zIndex:     40,
+          padding:    '0 12px 12px',
+        }}
       >
-        {/* Sliding pill indicator (inside pill bar, offset by padding) */}
-        <div
-          ref={pillRef}
-          style={{
-            position:      'absolute',
-            bottom:        '19px',
-            width:         '28px',
-            height:        '3px',
-            borderRadius:  '9999px',
-            background:    '#6366f1',
-            opacity:       isSwipeTab ? 1 : 0,
-            transform:     'translateX(-50%)',
-            pointerEvents: 'none',
-          }}
-        />
 
         {/* Glass pill — items-center keeps circle inside */}
         <div
