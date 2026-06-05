@@ -182,7 +182,7 @@ export default function Dashboard() {
 
   return (
     <div className="h-full overflow-y-auto no-scrollbar bg-slate-900 page-in">
-      <div className="px-4 pt-4 pb-8 flex flex-col min-h-full">
+      <div className="px-4 pt-4 flex flex-col min-h-full" style={{ paddingBottom: '112px' }}>
 
         {/* Date */}
         <div className="mb-6">

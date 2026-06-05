@@ -240,24 +240,20 @@ export default function MainLayout() {
             ref={containerRef}
             style={{ display: 'flex', width: '300%', height: '100%', willChange: 'transform' }}
           >
-            <div style={{ width: '33.333%', height: '100%', overflowY: 'auto', overflowX: 'hidden', paddingBottom: '96px' }}>
+            <div style={{ width: '33.333%', height: '100%', overflowY: 'auto', overflowX: 'hidden' }}>
               <Dashboard />
             </div>
-            <div style={{ width: '33.333%', height: '100%', overflowY: 'auto', overflowX: 'hidden', paddingBottom: '96px' }}>
+            <div style={{ width: '33.333%', height: '100%', overflowY: 'auto', overflowX: 'hidden' }}>
               <Planner />
             </div>
-            <div style={{ width: '33.333%', height: '100%', overflowY: 'auto', overflowX: 'hidden', paddingBottom: '96px' }}>
+            <div style={{ width: '33.333%', height: '100%', overflowY: 'auto', overflowX: 'hidden' }}>
               <History />
             </div>
           </div>
         </div>
 
         {/* Outlet: Session, Import, … */}
-        {!isSwipeTab && (
-          <div style={{ height: '100%', paddingBottom: '96px', boxSizing: 'border-box' }}>
-            <Outlet />
-          </div>
-        )}
+        {!isSwipeTab && <Outlet />}
 
       </div>
 

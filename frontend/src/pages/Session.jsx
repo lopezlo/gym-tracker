@@ -439,7 +439,7 @@ export default function Session() {
       </div>
 
       {/* ── Exercise cards ── */}
-      <div className="flex-1 overflow-y-auto no-scrollbar px-4 pb-4 space-y-3">
+      <div className="flex-1 overflow-y-auto no-scrollbar px-4 space-y-3" style={{ paddingBottom: '112px' }}>
 
         {/* Empty state (no sets, no template) */}
         {groupedSets.size === 0 && ghostExercises.length === 0 && (

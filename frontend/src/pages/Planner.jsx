@@ -268,7 +268,7 @@ export default function Planner() {
 
   return (
     <div className="h-full overflow-y-auto no-scrollbar bg-slate-900">
-      <div className="px-4 pb-10 pt-3 space-y-8">
+      <div className="px-4 pt-3 space-y-8" style={{ paddingBottom: '112px' }}>
 
         {/* ── Próxima sesión ── */}
         <section>

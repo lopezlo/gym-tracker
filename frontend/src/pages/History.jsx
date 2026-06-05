@@ -49,7 +49,7 @@ export default function History() {
 
   return (
     <div className="h-full flex flex-col overflow-hidden">
-      <div className="page-in flex-1 scrollable no-scrollbar px-4 pt-3 pb-6 space-y-5">
+      <div className="page-in flex-1 scrollable no-scrollbar px-4 pt-3 space-y-5" style={{ paddingBottom: '112px' }}>
 
         {/* All-time stats row (2 blocks) */}
         <div className="grid grid-cols-2 gap-3">

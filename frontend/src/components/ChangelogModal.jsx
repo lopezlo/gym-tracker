@@ -3,6 +3,13 @@ import BottomSheet from './BottomSheet'
 
 const CHANGELOG = [
   {
+    version: '2.0.7',
+    date: '5 jun 2026',
+    changes: [
+      'Fixed: Contenido ahora se desplaza realmente por detrás del menú flotante (padding en el scroll interno de cada página)',
+    ],
+  },
+  {
     version: '2.0.6',
     date: '5 jun 2026',
     changes: [
