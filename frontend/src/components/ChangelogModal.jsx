@@ -31,6 +31,13 @@ function ChangeEntry({ text }) {
 
 const CHANGELOG = [
   {
+    version: '2.0.15',
+    date: '6 jun 2026',
+    changes: [
+      'Mejora: Swipe sesión↔Plan con acompañamiento visual simultáneo en ambas direcciones',
+    ],
+  },
+  {
     version: '2.0.14',
     date: '6 jun 2026',
     changes: [

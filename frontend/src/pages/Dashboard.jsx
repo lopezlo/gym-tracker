@@ -56,8 +56,12 @@ export default function Dashboard() {
     }
   }, [activeSessionId])
 
-  // Panel 0 must match session screen background so the swipe transition is invisible
-  if (activeSessionId) return <div className="h-full bg-slate-900" />
+  // Panel 0: subtle session indicator — bg matches session screen for seamless swipe
+  if (activeSessionId) return (
+    <div className="h-full bg-slate-900 flex items-center justify-center">
+      <div className="w-2.5 h-2.5 bg-emerald-500 rounded-full animate-pulse opacity-60" />
+    </div>
+  )
 
   // ── Template handlers ──────────────────────────────────────────────────────
   const handleLoadPlan = () =>
