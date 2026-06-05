@@ -3,6 +3,16 @@ import BottomSheet from './BottomSheet'
 
 const CHANGELOG = [
   {
+    version: '2.0.6',
+    date: '5 jun 2026',
+    changes: [
+      'Mejora: Orden nav — Inicio · Plan · Progreso (círculo a la izquierda)',
+      'Mejora: Círculo dentro del pill, centrado verticalmente, sin desbordarse (46px)',
+      'Mejora: Borde oscuro en el círculo para dar profundidad',
+      'Mejora: Contenido llega hasta el fondo de la pantalla, el nav flota encima',
+    ],
+  },
+  {
     version: '2.0.5',
     date: '4 jun 2026',
     changes: [

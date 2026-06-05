@@ -30,14 +30,14 @@ export default function MainLayout() {
   const location = useLocation()
 
   // Nav logic
-  // Swipe panels order: Planner=0  Dashboard=1  History=2
-  // Nav visual order:   [Plan]     [⬤ circle]   [Progreso]
+  // Swipe panels order: Dashboard=0  Planner=1  History=2
+  // Nav visual order:   [⬤ Inicio]  [Plan]      [Progreso]
   const isSwipeTab    = ['/planner', '/dashboard', '/history'].includes(location.pathname)
   const isSessionRoute = location.pathname.startsWith('/session/')
   const onDashboard   = location.pathname === '/dashboard'
-  const tabIndex = location.pathname === '/history'   ? 2
-                 : location.pathname === '/dashboard'  ? 1
-                 : 0  // planner
+  const tabIndex = location.pathname === '/history'  ? 2
+                 : location.pathname === '/planner'   ? 1
+                 : 0  // dashboard
 
   const tabIndexRef = useRef(tabIndex)
 
@@ -167,7 +167,7 @@ export default function MainLayout() {
       if (dx > 0 && idx > 0 && (Math.abs(dx) > DIST_THRESHOLD || velocity > VEL_THRESHOLD)) newTab = idx - 1
 
       if (newTab !== idx) {
-        navigate(newTab === 0 ? '/planner' : newTab === 1 ? '/dashboard' : '/history')
+        navigate(newTab === 0 ? '/dashboard' : newTab === 1 ? '/planner' : '/history')
       } else {
         snapTo(idx, true)
         setPillX(idx, true)
@@ -241,10 +241,10 @@ export default function MainLayout() {
             style={{ display: 'flex', width: '300%', height: '100%', willChange: 'transform' }}
           >
             <div style={{ width: '33.333%', height: '100%', overflowY: 'auto', overflowX: 'hidden', paddingBottom: '96px' }}>
-              <Planner />
+              <Dashboard />
             </div>
             <div style={{ width: '33.333%', height: '100%', overflowY: 'auto', overflowX: 'hidden', paddingBottom: '96px' }}>
-              <Dashboard />
+              <Planner />
             </div>
             <div style={{ width: '33.333%', height: '100%', overflowY: 'auto', overflowX: 'hidden', paddingBottom: '96px' }}>
               <History />
@@ -283,9 +283,9 @@ export default function MainLayout() {
           }}
         />
 
-        {/* Glass pill */}
+        {/* Glass pill — items-center keeps circle inside */}
         <div
-          className="flex items-end h-16"
+          className="flex items-center h-16"
           style={{
             background:           'rgba(15, 23, 42, 0.88)',
             backdropFilter:       'blur(20px)',
@@ -293,54 +293,32 @@ export default function MainLayout() {
             borderRadius:         '9999px',
             border:               '1px solid rgba(255, 255, 255, 0.09)',
             boxShadow:            '0 -2px 24px rgba(0,0,0,0.35), 0 8px 32px rgba(0,0,0,0.4)',
-            overflow:             'visible',
+            overflow:             'hidden',
           }}
         >
 
-          {/* Plan */}
-          <NavLink
-            to="/planner"
-            className={({ isActive }) =>
-              `flex-1 flex flex-col items-center gap-1 py-3 text-xs font-medium transition-colors ${
-                isActive ? 'text-indigo-400' : 'text-slate-500 hover:text-slate-300'
-              }`
-            }
-          >
-            <CalendarDays size={22} />
-            Plan
-          </NavLink>
-
-          {/* ── Circle = Inicio/Sesión (center, flex-1) ── */}
-          <div className="flex-1 flex justify-center" style={{ position: 'relative', height: '64px' }}>
-            <div
-              style={{
-                position:     'absolute',
-                bottom:       '12px',
-                width:        '64px',
-                height:       '64px',
-                borderRadius: '9999px',
-                animation:    activeSessionId ? 'gym-pulse-active 2s ease-in-out infinite' : 'none',
-              }}
-            >
+          {/* ── Inicio / circle — LEFT, vertically centered inside pill ── */}
+          <div className="flex-1 flex items-center justify-center">
+            <div style={{ animation: activeSessionId ? 'gym-pulse-active 2s ease-in-out infinite' : 'none', borderRadius: '9999px' }}>
               <button
                 onClick={() => navigate('/dashboard')}
                 aria-label="Inicio"
                 style={{
-                  width:          '100%',
-                  height:         '100%',
+                  width:          '46px',
+                  height:         '46px',
                   borderRadius:   '9999px',
-                  border:         '4px solid #0f172a',
+                  border:         '2px solid rgba(0,0,0,0.35)',
                   overflow:       'hidden',
                   position:       'relative',
                   display:        'flex',
                   alignItems:     'center',
                   justifyContent: 'center',
                   cursor:         'pointer',
-                  background:     activeSessionId ? 'transparent' : onDashboard ? '#4f46e5' : 'rgba(99,102,241,0.18)',
-                  boxShadow:      activeSessionId ? 'none' : onDashboard ? '0 4px 20px rgba(99,102,241,0.35)' : 'none',
+                  background:     activeSessionId ? 'transparent' : onDashboard ? '#4f46e5' : 'rgba(99,102,241,0.2)',
+                  boxShadow:      !activeSessionId && onDashboard ? '0 2px 12px rgba(99,102,241,0.4)' : 'none',
                   transition:     'transform 80ms',
                 }}
-                onPointerDown={e  => (e.currentTarget.style.transform = 'scale(0.93)')}
+                onPointerDown={e  => (e.currentTarget.style.transform = 'scale(0.92)')}
                 onPointerUp={e    => (e.currentTarget.style.transform = '')}
                 onPointerLeave={e => (e.currentTarget.style.transform = '')}
               >
@@ -358,21 +336,34 @@ export default function MainLayout() {
                 {activeSessionId && (
                   <div style={{ position: 'absolute', inset: 0, background: 'rgba(0,0,0,0.18)', zIndex: 5 }} />
                 )}
-                <Activity size={26} color="white" style={{ position: 'relative', zIndex: 10 }} />
+                <Activity size={20} color="white" style={{ position: 'relative', zIndex: 10 }} />
               </button>
             </div>
           </div>
 
-          {/* Progreso */}
+          {/* Plan — CENTER */}
           <NavLink
-            to="/history"
+            to="/planner"
             className={({ isActive }) =>
-              `flex-1 flex flex-col items-center gap-1 py-3 text-xs font-medium transition-colors ${
+              `flex-1 flex flex-col items-center justify-center gap-1 text-xs font-medium transition-colors ${
                 isActive ? 'text-indigo-400' : 'text-slate-500 hover:text-slate-300'
               }`
             }
           >
-            <BarChart2 size={22} />
+            <CalendarDays size={20} />
+            Plan
+          </NavLink>
+
+          {/* Progreso — RIGHT */}
+          <NavLink
+            to="/history"
+            className={({ isActive }) =>
+              `flex-1 flex flex-col items-center justify-center gap-1 text-xs font-medium transition-colors ${
+                isActive ? 'text-indigo-400' : 'text-slate-500 hover:text-slate-300'
+              }`
+            }
+          >
+            <BarChart2 size={20} />
             Progreso
           </NavLink>
 
