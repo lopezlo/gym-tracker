@@ -235,13 +235,17 @@ export default function MainLayout() {
       cont.style.transform  = `translateX(${-(tabIndex * 100) / 3}%)`
     }
 
-    wrapper.style.transition = 'transform 280ms cubic-bezier(0.4,0,0.2,1)'
-    wrapper.style.transform  = `translateX(${screenW}px)`
+    // Move by tabIndex panels: Plan (1×screenW) or Progress (2×screenW)
+    const moveBy   = tabIndex * screenW
+    const duration = tabIndex === 1 ? 280 : 400
+
+    wrapper.style.transition = `transform ${duration}ms cubic-bezier(0.4,0,0.2,1)`
+    wrapper.style.transform  = `translateX(${moveBy}px)`
     setTimeout(() => {
       wrapper.style.transition = ''
       wrapper.style.display    = 'none'
       navigate(target)
-    }, 280)
+    }, duration)
   }, [activeSessionId, isSwipeTab, navigate, tabIndex])
 
   // Sync cleanup of wrapper AND container transforms when leaving swipe tabs
