@@ -31,6 +31,13 @@ function ChangeEntry({ text }) {
 
 const CHANGELOG = [
   {
+    version: '2.0.14',
+    date: '6 jun 2026',
+    changes: [
+      'Mejora: Transición de swipe hacia sesión invisible — fondo oscuro en vez de spinner',
+    ],
+  },
+  {
     version: '2.0.13',
     date: '6 jun 2026',
     changes: [
