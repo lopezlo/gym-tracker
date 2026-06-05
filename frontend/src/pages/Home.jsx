@@ -269,7 +269,7 @@ export default function Home() {
             {users.map(u => (
               <div
                 key={u.id}
-                className="flex items-center bg-slate-800 rounded-2xl transition-colors overflow-hidden"
+                className="flex items-center bg-slate-800 rounded-2xl transition-colors"
                 style={{
                   transform: pressedUser === u.id ? 'scale(0.96)' : 'scale(1)',
                   transition: 'transform 140ms cubic-bezier(0.34,1.2,0.64,1)',

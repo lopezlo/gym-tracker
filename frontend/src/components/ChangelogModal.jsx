@@ -3,6 +3,15 @@ import BottomSheet from './BottomSheet'
 
 const CHANGELOG = [
   {
+    version: '2.1.0',
+    date: '5 jun 2026',
+    changes: [
+      'Fixed: Menú ⋯ en selector de usuario volvía a quedar recortado (overflow-hidden en la tarjeta)',
+      'Nuevo: Editar perfil directamente desde Ajustes (lápiz en la tarjeta de usuario)',
+      'Nuevo: Descargar datos y Eliminar cuenta en Ajustes (zona inferior, estilo sutil)',
+    ],
+  },
+  {
     version: '2.0.9',
     date: '5 jun 2026',
     changes: [
