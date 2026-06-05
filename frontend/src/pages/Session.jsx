@@ -442,13 +442,13 @@ export default function Session() {
   return (
     <div className={`h-full flex flex-col bg-slate-900${wasInitiallyCached.current ? '' : ' page-in'}`}>
 
-      {/* ── Session subheader: always visible for spacing ── */}
-      <div className="flex-shrink-0 px-4 py-2 border-b border-slate-800">
+      {/* ── Session subheader: fixed height always ── */}
+      <div className="flex-shrink-0 px-4 border-b border-slate-800 h-11 flex items-center">
         {timerAnchor && <RestTimer lastSetAt={timerAnchor} />}
       </div>
 
       {/* ── Exercise cards ── */}
-      <div className="flex-1 overflow-y-auto no-scrollbar px-4 space-y-3" style={{ paddingBottom: '112px' }}>
+      <div className="flex-1 overflow-y-auto no-scrollbar px-4 pt-3 space-y-3" style={{ paddingBottom: '112px' }}>
 
         {/* Empty state (no sets, no template) */}
         {groupedSets.size === 0 && ghostExercises.length === 0 && (

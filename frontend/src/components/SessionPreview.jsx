@@ -81,6 +81,7 @@ export default function SessionPreview({ sessionId }) {
   if (!cache) {
     return (
       <div className="h-full flex flex-col bg-slate-900">
+        <div className="flex-shrink-0 h-11 border-b border-slate-800" />
         <div className="flex-1 overflow-hidden px-4 pt-3 space-y-3">
           <SkeletonCard />
           <SkeletonCard />
@@ -101,10 +102,10 @@ export default function SessionPreview({ sessionId }) {
 
   return (
     <div className="h-full flex flex-col bg-slate-900">
-      {/* Subheader always visible for consistent spacing */}
-      <div className="flex-shrink-0 h-10 border-b border-slate-800" />
+      {/* Subheader: same fixed height as Session.jsx (h-11) */}
+      <div className="flex-shrink-0 h-11 border-b border-slate-800" />
 
-      <div className="flex-1 overflow-y-auto no-scrollbar px-4 pt-3 pb-3 space-y-3">
+      <div className="flex-1 overflow-y-auto no-scrollbar px-4 pt-3 space-y-3" style={{ paddingBottom: '112px' }}>
         {groupedSets.size === 0 ? (
           <div className="flex flex-col items-center justify-center text-center py-12">
             <div className="w-16 h-16 rounded-2xl bg-slate-800 flex items-center justify-center mb-4">

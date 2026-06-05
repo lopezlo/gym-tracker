@@ -31,6 +31,14 @@ function ChangeEntry({ text }) {
 
 const CHANGELOG = [
   {
+    version: '2.0.23',
+    date: '6 jun 2026',
+    changes: [
+      'Mejora: Subheader de sesión altura fija (h-11) — sin saltos de layout independientemente del timer',
+      'Mejora: Separación fija entre la línea divisora y las tarjetas de ejercicio',
+    ],
+  },
+  {
     version: '2.0.22',
     date: '6 jun 2026',
     changes: [
