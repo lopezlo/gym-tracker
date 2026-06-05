@@ -31,6 +31,13 @@ function ChangeEntry({ text }) {
 
 const CHANGELOG = [
   {
+    version: '2.0.26',
+    date: '7 jun 2026',
+    changes: [
+      'Nuevo: Pull-to-refresh en Inicio, Plan y Progreso — desliza hacia abajo para actualizar',
+    ],
+  },
+  {
     version: '2.0.25',
     date: '7 jun 2026',
     changes: [
