@@ -31,6 +31,13 @@ function ChangeEntry({ text }) {
 
 const CHANGELOG = [
   {
+    version: '2.0.24',
+    date: '7 jun 2026',
+    changes: [
+      'Fixed: Desde Progreso, clic en el menú con entrenamiento activo ahora anima correctamente hasta la sesión',
+    ],
+  },
+  {
     version: '2.0.23',
     date: '6 jun 2026',
     changes: [
