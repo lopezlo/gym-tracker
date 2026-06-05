@@ -338,6 +338,9 @@ function AddSetSheet({ exercise, sessionId, sessionSets, onAdded, onClose }) {
   )
 }
 
+// ── Module-level session cache — persists across component mounts ──────────────
+const _sessionCache = {}
+
 // ── Main page ──────────────────────────────────────────────────────────────────
 export default function Session() {
   const { id } = useParams()
@@ -345,32 +348,44 @@ export default function Session() {
   const navigate = useNavigate()
   const location = useLocation()
 
-  const [session, setSession]               = useState(null)
-  const [sets, setSets]                     = useState([])
+  // Seed state from cache on mount — no spinner, no animation on re-visit
+  const cached             = _sessionCache[id]
+  const wasInitiallyCached = useRef(!!cached)
+
+  const [session, setSession]               = useState(cached?.session ?? null)
+  const [sets, setSets]                     = useState(cached?.sets ?? [])
   const [addingTo, setAddingTo]             = useState(null)
   const [showSelector, setShowSelector]     = useState(false)
   const [showEndConfirm, setShowEndConfirm] = useState(false)
   const [confirmDeleteSet, setConfirmDeleteSet] = useState(null)
-  const [loading, setLoading]               = useState(true)
+  const [loading, setLoading]               = useState(!cached)   // skip if cached
   const [ending, setEnding]                 = useState(false)
   const [newSetId, setNewSetId]             = useState(null)
-  const [timerAnchor, setTimerAnchor]       = useState(null)
-  // Template comes from Dashboard via location.state (set before session starts)
+  const [timerAnchor, setTimerAnchor]       = useState(cached?.timerAnchor ?? null)
   const [loadedTemplate, setLoadedTemplate] = useState(
     () => location.state?.template ?? null
   )
 
   const sessionElapsed = useTimer(session?.started_at)
 
+  // Keep cache in sync whenever sets/timerAnchor change
+  useEffect(() => {
+    if (_sessionCache[id]) {
+      _sessionCache[id] = { ..._sessionCache[id], sets, timerAnchor }
+    }
+  }, [sets, timerAnchor])
+
   useEffect(() => {
     api.getSession(id)
       .then(data => {
         setSession(data)
-        setSets(data.sets || [])
+        const s = data.sets || []
+        setSets(s)
         setActiveSession(Number(id), data.started_at)
-        if (data.sets?.length > 0) {
-          setTimerAnchor(data.sets[data.sets.length - 1].recorded_at)
-        }
+        const anchor = s.length > 0 ? s[s.length - 1].recorded_at : null
+        setTimerAnchor(anchor)
+        // Populate / refresh cache
+        _sessionCache[id] = { session: data, sets: s, timerAnchor: anchor }
       })
       .catch(() => { setActiveSession(null); navigate('/dashboard') })
       .finally(() => setLoading(false))
@@ -403,6 +418,7 @@ export default function Session() {
     try {
       if (sets.length === 0) await api.deleteSession(id)
       else await api.endSession(id)
+      delete _sessionCache[id]   // clear cache when session ends
       setActiveSession(null)
       navigate('/dashboard')
     } catch (e) { alert(e.message); setEnding(false) }
@@ -425,7 +441,7 @@ export default function Session() {
   )
 
   return (
-    <div className="h-full flex flex-col bg-slate-900 page-in">
+    <div className={`h-full flex flex-col bg-slate-900${wasInitiallyCached.current ? '' : ' page-in'}`}>
 
       {/* ── Session subheader: rest timer ── */}
       {timerAnchor && (

@@ -31,6 +31,13 @@ function ChangeEntry({ text }) {
 
 const CHANGELOG = [
   {
+    version: '2.0.17',
+    date: '6 jun 2026',
+    changes: [
+      'Mejora: Vuelta a sesión activa instantánea — caché de datos elimina spinner y animación de entrada',
+    ],
+  },
+  {
     version: '2.0.16',
     date: '6 jun 2026',
     changes: [
