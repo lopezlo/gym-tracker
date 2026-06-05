@@ -31,6 +31,13 @@ function ChangeEntry({ text }) {
 
 const CHANGELOG = [
   {
+    version: '2.0.22',
+    date: '6 jun 2026',
+    changes: [
+      'Fixed: Artefacto de tarjeta en esquina superior derecha al volver a sesión (container transform intermedio)',
+    ],
+  },
+  {
     version: '2.0.21',
     date: '6 jun 2026',
     changes: [

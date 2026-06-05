@@ -222,25 +222,39 @@ export default function MainLayout() {
     if (!activeSessionId) { navigate('/dashboard'); return }
     const target  = `/session/${activeSessionId}`
     const wrapper = wrapperRef.current
+    const cont    = containerRef.current
     const screenW = window.innerWidth
     if (!wrapper || !isSwipeTab) { navigate(target); return }
+
+    // Reset container to the correct tab position BEFORE animating the wrapper.
+    // After a mid-swipe-to-session gesture, containerRef may be at an intermediate
+    // transform. If not corrected, SessionPreview (panel 0) appears at the wrong
+    // screen position during the animation (causing the upper-right artifact).
+    if (cont) {
+      cont.style.transition = 'none'
+      cont.style.transform  = `translateX(${-(tabIndex * 100) / 3}%)`
+    }
 
     wrapper.style.transition = 'transform 280ms cubic-bezier(0.4,0,0.2,1)'
     wrapper.style.transform  = `translateX(${screenW}px)`
     setTimeout(() => {
       wrapper.style.transition = ''
-      // Hide immediately before navigate — don't wait for React's async re-render
-      wrapper.style.display = 'none'
+      wrapper.style.display    = 'none'
       navigate(target)
     }, 280)
-  }, [activeSessionId, isSwipeTab, navigate])
+  }, [activeSessionId, isSwipeTab, navigate, tabIndex])
 
-  // Sync cleanup of wrapper transforms when leaving swipe tabs (before paint)
+  // Sync cleanup of wrapper AND container transforms when leaving swipe tabs
   useLayoutEffect(() => {
-    if (!isSwipeTab && wrapperRef.current) {
-      wrapperRef.current.style.transform  = ''
-      wrapperRef.current.style.transition = ''
-      // display:none is set by React's inline style — just clear residual transforms
+    if (!isSwipeTab) {
+      if (wrapperRef.current) {
+        wrapperRef.current.style.transform  = ''
+        wrapperRef.current.style.transition = ''
+      }
+      if (containerRef.current) {
+        containerRef.current.style.transform  = ''
+        containerRef.current.style.transition = ''
+      }
     }
   }, [isSwipeTab])
 
