@@ -31,6 +31,13 @@ function ChangeEntry({ text }) {
 
 const CHANGELOG = [
   {
+    version: '2.0.19',
+    date: '6 jun 2026',
+    changes: [
+      'Fixed: Artefacto visual al navegar a sesión desde menú — swipe container se limpia después de que React lo oculta',
+    ],
+  },
+  {
     version: '2.0.18',
     date: '6 jun 2026',
     changes: [

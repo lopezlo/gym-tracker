@@ -228,10 +228,19 @@ export default function MainLayout() {
     wrapper.style.transform  = `translateX(${screenW}px)`
     setTimeout(() => {
       wrapper.style.transition = ''
-      wrapper.style.transform  = ''
+      // Don't reset transform here — React will set display:none on next render.
+      // Transform cleanup happens in the isSwipeTab useEffect below (after display:none).
       navigate(target)
     }, 280)
   }, [activeSessionId, isSwipeTab, navigate])
+
+  // Clean up wrapper residual transform after React hides it (display:none)
+  useEffect(() => {
+    if (!isSwipeTab && wrapperRef.current) {
+      wrapperRef.current.style.transform  = ''
+      wrapperRef.current.style.transition = ''
+    }
+  }, [isSwipeTab])
 
   // ── Animated navigation FROM session TO a swipe tab ──────────────────────────
   // Session slides out left, target tab slides in from right simultaneously.
