@@ -1,10 +1,11 @@
-import { useState, useEffect, useRef } from 'react'
+import { useState, useEffect, useRef, useCallback } from 'react'
 import { useNavigate, useLocation } from 'react-router-dom'
 import { Plus, Calendar, CheckCircle, Clock, ChevronRight, X } from 'lucide-react'
 import { api } from '../api/client'
 import { useApp } from '../context/AppContext'
 import BottomSheet from '../components/BottomSheet'
 import SessionPreview from '../components/SessionPreview'
+import PullToRefresh from '../components/PullToRefresh'
 import dayjs from 'dayjs'
 import 'dayjs/locale/es'
 
@@ -91,9 +92,28 @@ export default function Dashboard() {
   // VIEW: session launcher (active session handled by redirect above)
   // ─────────────────────────────────────────────────────────────────────────
   const hasTemplateOptions = !loading && (todayRoutines.length > 0 || sessionPlan)
+  const scrollRef = useRef(null)
+
+  const handleRefresh = useCallback(async () => {
+    const todayDay = new Date().getDay()
+    setLoading(true)
+    try {
+      const [rs, p] = await Promise.all([
+        api.getRoutines(user.id),
+        api.getPlan(user.id).catch(() => null),
+      ])
+      setTodayRoutines(rs.filter(r => r.days.includes(todayDay)))
+      setSessionPlan(p)
+    } finally { setLoading(false) }
+  }, [user.id])
 
   return (
-    <div className="h-full overflow-y-auto no-scrollbar bg-slate-900 page-in">
+    <PullToRefresh onRefresh={handleRefresh} scrollRef={scrollRef}>
+    <div
+      ref={scrollRef}
+      className="h-full overflow-y-auto no-scrollbar bg-slate-900 page-in"
+      style={{ overscrollBehaviorY: 'none' }}
+    >
       <div className="px-4 pt-4 flex flex-col min-h-full" style={{ paddingBottom: '112px' }}>
 
         {/* Date */}
@@ -212,5 +232,6 @@ export default function Dashboard() {
         </BottomSheet>
       )}
     </div>
+    </PullToRefresh>
   )
 }

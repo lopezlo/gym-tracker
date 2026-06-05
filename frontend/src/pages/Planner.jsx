@@ -1,10 +1,11 @@
-import { useState, useEffect } from 'react'
+import { useState, useEffect, useRef, useCallback } from 'react'
 import { Plus, Trash2, Edit2, BookOpen, Dumbbell, Clock, X } from 'lucide-react'
 import { api } from '../api/client'
 import { useApp } from '../context/AppContext'
 import BottomSheet from '../components/BottomSheet'
 import ExerciseSelector from '../components/ExerciseSelector'
 import ConfirmModal from '../components/ConfirmModal'
+import PullToRefresh from '../components/PullToRefresh'
 
 const DAYS      = ['D', 'L', 'M', 'X', 'J', 'V', 'S']
 const DAY_NAMES = ['Domingo', 'Lunes', 'Martes', 'Miércoles', 'Jueves', 'Viernes', 'Sábado']
@@ -260,6 +261,17 @@ export default function Planner() {
     setDeletingPlan(false)
   }
 
+  const scrollRef = useRef(null)
+
+  const handleRefresh = useCallback(async () => {
+    const [rs, p] = await Promise.all([
+      api.getRoutines(user.id),
+      api.getPlan(user.id).catch(() => null),
+    ])
+    setRoutines(rs)
+    setPlan(p)
+  }, [user.id])
+
   if (loading) return (
     <div className="h-full flex items-center justify-center bg-slate-900">
       <div className="w-8 h-8 border-2 border-indigo-500 border-t-transparent rounded-full animate-spin" />
@@ -267,7 +279,12 @@ export default function Planner() {
   )
 
   return (
-    <div className="h-full overflow-y-auto no-scrollbar bg-slate-900">
+    <PullToRefresh onRefresh={handleRefresh} scrollRef={scrollRef}>
+    <div
+      ref={scrollRef}
+      className="h-full overflow-y-auto no-scrollbar bg-slate-900"
+      style={{ overscrollBehaviorY: 'none' }}
+    >
       <div className="px-4 pt-3 space-y-8" style={{ paddingBottom: '112px' }}>
 
         {/* ── Próxima sesión ── */}
@@ -424,5 +441,6 @@ export default function Planner() {
         />
       )}
     </div>
+    </PullToRefresh>
   )
 }
