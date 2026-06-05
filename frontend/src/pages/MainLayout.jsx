@@ -63,6 +63,7 @@ export default function MainLayout() {
   const wrapperRef   = useRef(null)
   const containerRef = useRef(null)
   const pillRef      = useRef(null)
+  const outletRef    = useRef(null)  // for swipe on non-swipe routes
 
   const touchStartX  = useRef(0)
   const touchStartY  = useRef(0)
@@ -201,6 +202,50 @@ export default function MainLayout() {
     finally { setEndingSession(false) }
   }
 
+  // ── Swipe on non-swipe routes (session, import) ────────────────────────────
+  useEffect(() => {
+    const el = outletRef.current
+    if (!el || isSwipeTab) return
+
+    let startX = 0, startY = 0, startMs = 0, dirLocked = null
+
+    const onStart = (e) => {
+      startX = e.touches[0].clientX
+      startY = e.touches[0].clientY
+      startMs = Date.now()
+      dirLocked = null
+    }
+    const onMove = (e) => {
+      const dx = e.touches[0].clientX - startX
+      const dy = e.touches[0].clientY - startY
+      if (dirLocked === null && (Math.abs(dx) > 8 || Math.abs(dy) > 8)) {
+        dirLocked = Math.abs(dx) > Math.abs(dy) * 1.2 ? 'h' : 'v'
+      }
+      if (dirLocked !== 'h') return
+      e.preventDefault()
+    }
+    const onEnd = (e) => {
+      if (dirLocked !== 'h') return
+      const dx = e.changedTouches[0].clientX - startX
+      const velocity = Math.abs(dx) / Math.max(Date.now() - startMs, 1)
+      const screenW = window.innerWidth
+      if (Math.abs(dx) > screenW * 0.25 || velocity > 0.35) {
+        // Swipe right → Inicio, Swipe left → Plan
+        if (dx > 0) navigate('/dashboard')
+        else        navigate('/planner')
+      }
+    }
+
+    el.addEventListener('touchstart', onStart, { passive: true  })
+    el.addEventListener('touchmove',  onMove,  { passive: false })
+    el.addEventListener('touchend',   onEnd,   { passive: true  })
+    return () => {
+      el.removeEventListener('touchstart', onStart)
+      el.removeEventListener('touchmove',  onMove)
+      el.removeEventListener('touchend',   onEnd)
+    }
+  }, [isSwipeTab, navigate])
+
   useEffect(() => {
     if (!user) navigate('/', { replace: true })
   }, [user])
@@ -277,7 +322,11 @@ export default function MainLayout() {
         </div>
 
         {/* Outlet: Session, Import, … */}
-        {!isSwipeTab && <Outlet />}
+        {!isSwipeTab && (
+          <div ref={outletRef} className="absolute inset-0">
+            <Outlet />
+          </div>
+        )}
 
       </div>
 

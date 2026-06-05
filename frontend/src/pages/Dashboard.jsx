@@ -49,12 +49,15 @@ export default function Dashboard() {
     }).finally(() => setLoading(false))
   }, [user.id, isActive])
 
-  // If session is active and we land here (via swipe), go directly to the session
+  // If session is active, redirect immediately (no flash of the launcher)
   useEffect(() => {
-    if (isActive && activeSessionId) {
+    if (activeSessionId) {
       navigate(`/session/${activeSessionId}`, { replace: true })
     }
-  }, [isActive, activeSessionId])
+  }, [activeSessionId])
+
+  // Don't render anything while redirect is pending
+  if (activeSessionId) return null
 
   // ── Template handlers ──────────────────────────────────────────────────────
   const handleLoadPlan = () =>

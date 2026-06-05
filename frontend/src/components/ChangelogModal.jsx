@@ -3,6 +3,15 @@ import BottomSheet from './BottomSheet'
 
 const CHANGELOG = [
   {
+    version: '2.1.1',
+    date: '5 jun 2026',
+    changes: [
+      'Mejora: Selector de usuario simplificado — menú ⋯ eliminado (edición/eliminación en Ajustes)',
+      'Fixed: Flash de "Empezar entrenamiento" al volver a Inicio con sesión activa',
+      'Nuevo: Swipe en pantalla de sesión — derecha vuelve a Inicio, izquierda va a Plan',
+    ],
+  },
+  {
     version: '2.1.0',
     date: '5 jun 2026',
     changes: [
