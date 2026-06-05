@@ -101,10 +101,8 @@ export default function SessionPreview({ sessionId }) {
 
   return (
     <div className="h-full flex flex-col bg-slate-900">
-      {/* Subheader only when timerAnchor exists — mirrors Session.jsx behavior */}
-      {cache.timerAnchor && (
-        <div className="flex-shrink-0 h-10 border-b border-slate-800" />
-      )}
+      {/* Subheader always visible for consistent spacing */}
+      <div className="flex-shrink-0 h-10 border-b border-slate-800" />
 
       <div className="flex-1 overflow-y-auto no-scrollbar px-4 pt-3 pb-3 space-y-3">
         {groupedSets.size === 0 ? (

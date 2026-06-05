@@ -31,6 +31,13 @@ function ChangeEntry({ text }) {
 
 const CHANGELOG = [
   {
+    version: '2.0.21',
+    date: '6 jun 2026',
+    changes: [
+      'Mejora: Subheader siempre visible en sesión — los ejercicios ya no quedan pegados al borde superior',
+    ],
+  },
+  {
     version: '2.0.20',
     date: '6 jun 2026',
     changes: [
