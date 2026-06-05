@@ -56,12 +56,8 @@ export default function Dashboard() {
     }
   }, [activeSessionId])
 
-  // Show spinner while redirect fires (avoids blank panel flash)
-  if (activeSessionId) return (
-    <div className="h-full flex items-center justify-center bg-slate-900">
-      <div className="w-7 h-7 border-2 border-indigo-500/30 border-t-indigo-500 rounded-full animate-spin" />
-    </div>
-  )
+  // Panel 0 must match session screen background so the swipe transition is invisible
+  if (activeSessionId) return <div className="h-full bg-slate-900" />
 
   // ── Template handlers ──────────────────────────────────────────────────────
   const handleLoadPlan = () =>
