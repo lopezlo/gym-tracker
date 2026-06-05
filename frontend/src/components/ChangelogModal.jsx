@@ -31,6 +31,14 @@ function ChangeEntry({ text }) {
 
 const CHANGELOG = [
   {
+    version: '2.0.16',
+    date: '6 jun 2026',
+    changes: [
+      'Mejora: Swipe sesión↔Plan con deslizamiento coordinado real (ambas vistas se mueven a la vez)',
+      'Mejora: Toque en Plan/Progreso desde sesión usa la misma animación que el swipe',
+    ],
+  },
+  {
     version: '2.0.15',
     date: '6 jun 2026',
     changes: [

@@ -1,4 +1,4 @@
-import { useState, useEffect, useLayoutEffect, useRef } from 'react'
+import { useState, useEffect, useLayoutEffect, useRef, useCallback } from 'react'
 import { Outlet, NavLink, useNavigate, useLocation } from 'react-router-dom'
 import { BarChart2, Activity, LogOut, CalendarDays } from 'lucide-react'
 import { useApp } from '../context/AppContext'
@@ -158,16 +158,6 @@ export default function MainLayout() {
         containerRef.current.style.transform = `translateX(${baseX + dragPct}%)`
       setPillX(progress, false)
 
-      // When swiping from Plan(1) toward Session panel(0), reveal session behind
-      if (activeSessionIdRef.current && idx === 1 && dragPct > 0 && outletRef.current) {
-        outletRef.current.style.visibility  = 'visible'
-        outletRef.current.style.pointerEvents = 'none'
-      } else if (outletRef.current && !isSwipeTab) {
-        // keep visible when already on outlet route
-      } else if (outletRef.current) {
-        outletRef.current.style.visibility  = 'hidden'
-        outletRef.current.style.pointerEvents = 'none'
-      }
     }
 
     const onEnd = (e) => {
@@ -197,11 +187,6 @@ export default function MainLayout() {
       } else {
         snapTo(idx, true)
         setPillX(idx, true)
-        // Restore outlet visibility if we snapped back
-        if (outletRef.current) {
-          outletRef.current.style.visibility   = 'hidden'
-          outletRef.current.style.pointerEvents = 'none'
-        }
       }
 
       swipeActive.current = false
@@ -230,38 +215,75 @@ export default function MainLayout() {
     finally { setEndingSession(false) }
   }
 
+  // ── Animated navigation from session to a swipe tab ─────────────────────────
+  // Session slides out left, target tab slides in from right simultaneously.
+  // Used both for swipe gestures and nav-bar taps.
+  const slideSessionOut = useCallback((targetPath, targetPanelIdx) => {
+    const el      = outletRef.current
+    const wrapper = wrapperRef.current
+    const cont    = containerRef.current
+    const screenW = window.innerWidth
+    if (!el || !wrapper || !cont) { navigate(targetPath); return }
+
+    // Position swipe container at target panel, start it off-screen right
+    cont.style.transition    = 'none'
+    cont.style.transform     = `translateX(${-(targetPanelIdx * 100) / 3}%)`
+    wrapper.style.transition = 'none'
+    wrapper.style.transform  = `translateX(${screenW}px)`
+    wrapper.style.display    = 'block'
+
+    requestAnimationFrame(() => {
+      const dur = '280ms cubic-bezier(0.4,0,0.2,1)'
+      el.style.transition      = `transform ${dur}`
+      el.style.transform       = `translateX(${-screenW}px)`
+      wrapper.style.transition = `transform ${dur}`
+      wrapper.style.transform  = 'translateX(0)'
+
+      setTimeout(() => {
+        el.style.transition      = ''
+        el.style.transform       = ''
+        wrapper.style.transition = ''
+        wrapper.style.transform  = ''
+        navigate(targetPath)
+      }, 280)
+    })
+  }, [navigate])
+
   // ── Swipe on session screen ──────────────────────────────────────────────────
-  // dx < 0 → Plan slides in from right (session slides out left)
-  // dx > 0 → rubber band (session is leftmost)
   useEffect(() => {
     const el      = outletRef.current
     const wrapper = wrapperRef.current
     const cont    = containerRef.current
     if (!el || isSwipeTab) return
 
-    let startX = 0, startY = 0, startMs = 0, dirLocked = null
+    let startX = 0, startY = 0, startMs = 0, dirLocked = null, screenW = window.innerWidth
 
-    const hideWrapper = () => {
-      if (wrapper) wrapper.style.display = 'none'
-    }
-
-    const reset = (spring = false) => {
-      el.style.transition = spring
-        ? 'transform 320ms cubic-bezier(0.34,1.2,0.64,1)'
-        : 'none'
-      el.style.transform = 'translateX(0)'
-      hideWrapper()
-      setTimeout(() => { el.style.transition = '' }, 320)
+    const snapBack = () => {
+      const dur = '320ms cubic-bezier(0.34,1.2,0.64,1)'
+      el.style.transition      = `transform ${dur}`
+      el.style.transform       = 'translateX(0)'
+      wrapper.style.transition = `transform ${dur}`
+      wrapper.style.transform  = `translateX(${screenW}px)`
+      setTimeout(() => {
+        el.style.transition      = ''
+        el.style.transform       = ''
+        wrapper.style.display    = 'none'
+        wrapper.style.transform  = ''
+        wrapper.style.transition = ''
+      }, 320)
     }
 
     const onStart = (e) => {
       startX    = e.touches[0].clientX
       startY    = e.touches[0].clientY
       startMs   = Date.now()
+      screenW   = window.innerWidth
       dirLocked = null
-      el.style.transition = 'none'
-      // Pre-position swipe container at Planner (panel 1) so Plan is ready behind session
+      el.style.transition      = 'none'
+      wrapper.style.transition = 'none'
+      // Pre-position: container at Planner (panel 1), wrapper starts off-screen right
       if (cont) { cont.style.transition = 'none'; cont.style.transform = `translateX(${-(1 * 100) / 3}%)` }
+      wrapper.style.transform = `translateX(${screenW}px)`
     }
 
     const onMove = (e) => {
@@ -274,13 +296,14 @@ export default function MainLayout() {
       e.preventDefault()
 
       if (dx < 0) {
-        // Session slides left — reveal Plan from right
-        el.style.transform = `translateX(${dx}px)`
-        if (wrapper) wrapper.style.display = 'block'  // Plan visible behind
+        // Session slides left, Plan slides in from right — simultaneously
+        el.style.transform      = `translateX(${dx}px)`
+        wrapper.style.display   = 'block'
+        wrapper.style.transform = `translateX(${screenW + dx}px)`
       } else {
-        // Rubber band
-        el.style.transform = `translateX(${dx * 0.12}px)`
-        hideWrapper()
+        // Rubber band: nothing to the right of session
+        el.style.transform      = `translateX(${dx * 0.12}px)`
+        wrapper.style.transform = `translateX(${screenW}px)` // keep off-screen
       }
     }
 
@@ -288,20 +311,21 @@ export default function MainLayout() {
       if (dirLocked !== 'h') return
       const dx       = e.changedTouches[0].clientX - startX
       const velocity = Math.abs(dx) / Math.max(Date.now() - startMs, 1)
-      const screenW  = window.innerWidth
 
       if (dx < 0 && (Math.abs(dx) > screenW * 0.25 || velocity > 0.35)) {
-        // Threshold → slide session fully out, navigate to Plan
-        el.style.transition = 'transform 240ms ease-in'
-        el.style.transform  = `translateX(${-screenW}px)`
+        // Complete slide to Plan
+        const dur = '240ms ease-in'
+        el.style.transition      = `transform ${dur}`
+        el.style.transform       = `translateX(${-screenW}px)`
+        wrapper.style.transition = `transform ${dur}`
+        wrapper.style.transform  = 'translateX(0)'
         setTimeout(() => {
-          el.style.transition = ''
-          el.style.transform  = ''
+          el.style.transition = ''; el.style.transform = ''
+          wrapper.style.transition = ''; wrapper.style.transform = ''
           navigate('/planner')
-          // React render: isSwipeTab=true → wrapper display handled by React
         }, 240)
       } else {
-        reset(true)
+        snapBack()
       }
     }
 
@@ -390,14 +414,12 @@ export default function MainLayout() {
           </div>
         </div>
 
-        {/* Outlet: always in DOM so outletRef is accessible during cross-swipe gestures */}
-        <div
-          ref={outletRef}
-          className="absolute inset-0"
-          style={{ visibility: isSwipeTab ? 'hidden' : 'visible', pointerEvents: isSwipeTab ? 'none' : 'auto' }}
-        >
-          {!isSwipeTab && <Outlet />}
-        </div>
+        {/* Outlet: Session, Import, … */}
+        {!isSwipeTab && (
+          <div ref={outletRef} className="absolute inset-0">
+            <Outlet />
+          </div>
+        )}
 
       </div>
 
@@ -484,6 +506,7 @@ export default function MainLayout() {
           {/* Plan — CENTER */}
           <NavLink
             to="/planner"
+            onClick={isSessionRoute ? (e) => { e.preventDefault(); slideSessionOut('/planner', 1) } : undefined}
             className={({ isActive }) =>
               `flex-1 flex flex-col items-center justify-center gap-1 text-xs font-medium transition-colors ${
                 isActive ? 'text-indigo-400' : 'text-slate-500 hover:text-slate-300'
@@ -497,6 +520,7 @@ export default function MainLayout() {
           {/* Progreso — RIGHT */}
           <NavLink
             to="/history"
+            onClick={isSessionRoute ? (e) => { e.preventDefault(); slideSessionOut('/history', 2) } : undefined}
             className={({ isActive }) =>
               `flex-1 flex flex-col items-center justify-center gap-1 text-xs font-medium transition-colors ${
                 isActive ? 'text-indigo-400' : 'text-slate-500 hover:text-slate-300'
