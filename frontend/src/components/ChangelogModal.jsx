@@ -31,10 +31,10 @@ function ChangeEntry({ text }) {
 
 const CHANGELOG = [
   {
-    version: '2.0.26',
+    version: '2.1.0',
     date: '7 jun 2026',
     changes: [
-      'Nuevo: Pull-to-refresh en Inicio, Plan y Progreso — desliza hacia abajo para actualizar',
+      'Nuevo: Pull-to-refresh — desliza hacia abajo en cualquier pantalla para recargar la app completa',
     ],
   },
   {

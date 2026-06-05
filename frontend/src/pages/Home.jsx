@@ -36,10 +36,10 @@ export default function Home() {
     api.getUsers().then(setUsers).catch(() => {}).finally(() => setLoading(false))
   }, [])
 
-  const handleRefresh = useCallback(async () => {
-    const list = await api.getUsers().catch(() => null)
-    if (list) setUsers(list)
-  }, [])
+  const handleRefresh = useCallback(
+    () => new Promise(() => window.location.reload()),
+    []
+  )
 
   const handleSelect = (u) => { selectUser(u); navigate('/dashboard') }
 

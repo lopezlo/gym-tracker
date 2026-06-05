@@ -54,8 +54,9 @@ export default function PullToRefresh({ onRefresh, scrollRef, children }) {
       activeRef.current = false
       if (phaseRef.current === 'ready') {
         update(THRESHOLD, 'refreshing')
+        // onRefresh may call window.location.reload() — page unmounts before Promise resolves
         try { await onRefresh() } catch {}
-        update(0, 'idle')
+        update(0, 'idle')  // only reached if onRefresh resolves (non-reload case)
       } else {
         update(0, 'idle')
       }

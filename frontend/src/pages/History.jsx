@@ -43,10 +43,10 @@ export default function History() {
       .finally(() => setLoading(false))
   }, [user?.id])
 
-  const handleRefresh = useCallback(async () => {
-    await loadStats()
-    setHistoryKey(k => k + 1)
-  }, [loadStats])
+  const handleRefresh = useCallback(
+    () => new Promise(() => window.location.reload()),
+    []
+  )
 
   const showSkeleton = loading && !stats
 

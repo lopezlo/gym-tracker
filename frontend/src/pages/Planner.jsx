@@ -263,14 +263,10 @@ export default function Planner() {
 
   const scrollRef = useRef(null)
 
-  const handleRefresh = useCallback(async () => {
-    const [rs, p] = await Promise.all([
-      api.getRoutines(user.id),
-      api.getPlan(user.id).catch(() => null),
-    ])
-    setRoutines(rs)
-    setPlan(p)
-  }, [user.id])
+  const handleRefresh = useCallback(
+    () => new Promise(() => window.location.reload()),
+    []
+  )
 
   if (loading) return (
     <div className="h-full flex items-center justify-center bg-slate-900">

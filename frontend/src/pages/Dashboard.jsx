@@ -94,18 +94,10 @@ export default function Dashboard() {
   const hasTemplateOptions = !loading && (todayRoutines.length > 0 || sessionPlan)
   const scrollRef = useRef(null)
 
-  const handleRefresh = useCallback(async () => {
-    const todayDay = new Date().getDay()
-    setLoading(true)
-    try {
-      const [rs, p] = await Promise.all([
-        api.getRoutines(user.id),
-        api.getPlan(user.id).catch(() => null),
-      ])
-      setTodayRoutines(rs.filter(r => r.days.includes(todayDay)))
-      setSessionPlan(p)
-    } finally { setLoading(false) }
-  }, [user.id])
+  const handleRefresh = useCallback(
+    () => new Promise(() => window.location.reload()),
+    []
+  )
 
   return (
     <PullToRefresh onRefresh={handleRefresh} scrollRef={scrollRef}>
