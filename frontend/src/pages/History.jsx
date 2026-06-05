@@ -1,6 +1,6 @@
 import { useState, useEffect, useCallback } from 'react'
 import { useNavigate } from 'react-router-dom'
-import { Clock, Flame, Calendar, Upload } from 'lucide-react'
+import { Clock, Flame, Upload } from 'lucide-react'
 import { api } from '../api/client'
 import { useApp } from '../context/AppContext'
 import CalendarHeatmap from '../components/CalendarHeatmap'
@@ -43,22 +43,19 @@ export default function History() {
 
   const showSkeleton = loading && !stats
 
-  // Year-specific stats (recomputed when calYear changes)
-  const yearData     = stats?.calendarData?.filter(d => String(d.date).startsWith(String(calYear))) ?? []
-  const yearSessions = yearData.reduce((sum, d) => sum + d.session_count, 0)
-  const yearMinutes  = yearData.reduce((sum, d) => sum + d.total_minutes, 0)
-  const yearDays     = yearData.length
+  // All-time totals
+  const totalSessions = stats?.calendarData?.reduce((sum, d) => sum + d.session_count, 0) ?? 0
+  const totalMinutes  = stats?.calendarData?.reduce((sum, d) => sum + d.total_minutes, 0) ?? 0
 
   return (
     <div className="h-full flex flex-col overflow-hidden">
       <div className="page-in flex-1 scrollable no-scrollbar px-4 pt-3 pb-6 space-y-5">
 
-        {/* Year stats row */}
-        <div className="grid grid-cols-3 gap-3">
+        {/* All-time stats row (2 blocks) */}
+        <div className="grid grid-cols-2 gap-3">
           {[
-            { icon: Flame,    label: 'Sesiones',  value: String(yearSessions) },
-            { icon: Clock,    label: 'Tiempo',    value: fmtTime(yearMinutes)  },
-            { icon: Calendar, label: 'Días',       value: String(yearDays)     },
+            { icon: Flame, label: 'Sesiones totales', value: String(totalSessions) },
+            { icon: Clock, label: 'Tiempo total',     value: fmtTime(totalMinutes)  },
           ].map(({ icon: Icon, label, value }) => (
             <div key={label} className="bg-slate-800 rounded-2xl p-3 text-center">
               <Icon size={18} className="text-indigo-400 mx-auto mb-1" />

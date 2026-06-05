@@ -3,6 +3,16 @@ import BottomSheet from './BottomSheet'
 
 const CHANGELOG = [
   {
+    version: '2.0.4',
+    date: '4 jun 2026',
+    changes: [
+      'Mejora: Botón de sesión renombrado a "Empezar entrenamiento"',
+      'Mejora: "Próxima sesión" → "Próximo entrenamiento" en Plan',
+      'Mejora: Estadísticas de Progreso muestran totales desde el inicio (sin el bloque de días)',
+      'Nuevo: Menú de navegación flotante con efecto cristal traslúcido y bordes redondeados',
+    ],
+  },
+  {
     version: '2.0.3',
     date: '4 jun 2026',
     changes: [

@@ -163,9 +163,9 @@ function PlanEditor({ plan, userId, onSave, onClose }) {
         {() => (
           <div className="px-5 pb-8 pt-2 space-y-5 overflow-y-auto max-h-[78vh]">
             <div>
-              <h2 className="text-white font-bold text-lg">Próxima sesión</h2>
+              <h2 className="text-white font-bold text-lg">Próximo entrenamiento</h2>
               <p className="text-slate-400 text-sm mt-1">
-                Define qué ejercicios harás. Se cargará al empezar la sesión y se consumirá automáticamente.
+                Define qué ejercicios harás. Se cargará al empezar y se consumirá automáticamente.
               </p>
             </div>
 
@@ -272,7 +272,7 @@ export default function Planner() {
 
         {/* ── Próxima sesión ── */}
         <section>
-          <h2 className="text-white font-bold text-base mb-3">Próxima sesión</h2>
+          <h2 className="text-white font-bold text-base mb-3">Próximo entrenamiento</h2>
 
           {plan ? (
             <div className="bg-slate-800 rounded-2xl p-4">
@@ -305,7 +305,7 @@ export default function Planner() {
               className="w-full flex items-center justify-center gap-2 border-2 border-dashed border-slate-700 hover:border-indigo-500 rounded-2xl py-5 text-slate-500 hover:text-indigo-400 transition-colors"
             >
               <Plus size={18} />
-              <span className="text-sm font-medium">Planificar próxima sesión</span>
+              <span className="text-sm font-medium">Planifica el próximo entrenamiento</span>
             </button>
           )}
         </section>

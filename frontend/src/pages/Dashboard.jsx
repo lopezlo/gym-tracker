@@ -268,7 +268,7 @@ export default function Dashboard() {
             className="w-full bg-indigo-600 hover:bg-indigo-500 active:scale-[0.98] disabled:opacity-60 text-white font-bold py-5 rounded-2xl flex items-center justify-center gap-2 transition-all text-lg"
           >
             <Plus size={22} />
-            {starting ? 'Iniciando…' : 'Iniciar sesión'}
+            {starting ? 'Iniciando…' : 'Empezar entrenamiento'}
           </button>
 
         </div>

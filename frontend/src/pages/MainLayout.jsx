@@ -77,17 +77,18 @@ export default function MainLayout() {
     containerRef.current.style.transform = `translateX(${-(idx * 100) / 3}%)`
   }
 
-  // Pill position: nav layout is 3 × flex-1 equal columns
-  // Dashboard=0, Plan=1, Progreso=2
+  // Pill position: 3 equal thirds inside the pill bar (accounts for 16px side padding)
+  const NAV_PAD = 16
   const setPillX = (progress, animate) => {
     const pill = pillRef.current
     if (!pill) return
-    const W    = navRef.current?.offsetWidth || window.innerWidth
-    const each = W / 3
+    const W     = navRef.current?.offsetWidth || window.innerWidth
+    const inner = W - NAV_PAD * 2
+    const each  = inner / 3
     const positions = [
-      each / 2,           // 0: Dashboard (left third center)
-      each * 1.5,         // 1: Plan (middle third center)
-      each * 2.5,         // 2: Progreso (right third center)
+      NAV_PAD + each / 2,         // 0: Dashboard
+      NAV_PAD + each * 1.5,       // 1: Plan
+      NAV_PAD + each * 2.5,       // 2: Progreso
     ]
     const lo = Math.max(0, Math.min(2, Math.floor(progress)))
     const hi = Math.min(2, lo + 1)
@@ -254,18 +255,18 @@ export default function MainLayout() {
 
       </div>
 
-      {/* ── Bottom nav ── */}
+      {/* ── Bottom nav — floating glass pill ── */}
       <nav
         ref={navRef}
-        className="flex-shrink-0 bg-slate-900 border-t border-slate-800 safe-bottom"
-        style={{ overflow: 'visible', position: 'relative' }}
+        className="flex-shrink-0 safe-bottom"
+        style={{ background: 'transparent', overflow: 'visible', position: 'relative', padding: '0 16px 12px' }}
       >
-        {/* Sliding pill */}
+        {/* Sliding pill indicator (inside pill bar, offset by padding) */}
         <div
           ref={pillRef}
           style={{
             position:      'absolute',
-            bottom:        '7px',
+            bottom:        '19px',
             width:         '28px',
             height:        '3px',
             borderRadius:  '9999px',
@@ -276,7 +277,19 @@ export default function MainLayout() {
           }}
         />
 
-        <div className="flex items-end h-16">
+        {/* Glass pill */}
+        <div
+          className="flex items-end h-16"
+          style={{
+            background:           'rgba(15, 23, 42, 0.88)',
+            backdropFilter:       'blur(20px)',
+            WebkitBackdropFilter: 'blur(20px)',
+            borderRadius:         '9999px',
+            border:               '1px solid rgba(255, 255, 255, 0.09)',
+            boxShadow:            '0 -2px 24px rgba(0,0,0,0.35), 0 8px 32px rgba(0,0,0,0.4)',
+            overflow:             'visible',
+          }}
+        >
 
           {/* ── Circle = Inicio/Sesión (leftmost, flex-1) ── */}
           <div className="flex-1 flex justify-center" style={{ position: 'relative', height: '64px' }}>
@@ -358,6 +371,7 @@ export default function MainLayout() {
           </NavLink>
 
         </div>
+        {/* ─── end glass pill ─── */}
       </nav>
 
       {/* ── Settings sheet ── */}
