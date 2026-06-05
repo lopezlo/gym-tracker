@@ -214,19 +214,31 @@ export default function MainLayout() {
     finally { setEndingSession(false) }
   }
 
-  // ── Swipe on non-swipe routes (session, import) ────────────────────────────
+  // ── Swipe on non-swipe routes (session) ────────────────────────────────────
+  // dx < 0 (left swipe)  → slide to Plan  (reverse of Plan→Session right swipe)
+  // dx > 0 (right swipe) → rubber band    (session is the leftmost, nothing there)
   useEffect(() => {
     const el = outletRef.current
     if (!el || isSwipeTab) return
 
     let startX = 0, startY = 0, startMs = 0, dirLocked = null
 
-    const onStart = (e) => {
-      startX = e.touches[0].clientX
-      startY = e.touches[0].clientY
-      startMs = Date.now()
-      dirLocked = null
+    const reset = (spring = false) => {
+      el.style.transition = spring
+        ? 'transform 320ms cubic-bezier(0.34,1.2,0.64,1)'
+        : 'none'
+      el.style.transform = 'translateX(0)'
+      setTimeout(() => { el.style.transition = '' }, 320)
     }
+
+    const onStart = (e) => {
+      startX    = e.touches[0].clientX
+      startY    = e.touches[0].clientY
+      startMs   = Date.now()
+      dirLocked = null
+      el.style.transition = 'none'
+    }
+
     const onMove = (e) => {
       const dx = e.touches[0].clientX - startX
       const dy = e.touches[0].clientY - startY
@@ -235,16 +247,34 @@ export default function MainLayout() {
       }
       if (dirLocked !== 'h') return
       e.preventDefault()
+
+      if (dx < 0) {
+        // Sliding toward Plan — follows finger
+        el.style.transform = `translateX(${dx}px)`
+      } else {
+        // Rubber band — dampened resistance
+        el.style.transform = `translateX(${dx * 0.12}px)`
+      }
     }
+
     const onEnd = (e) => {
       if (dirLocked !== 'h') return
-      const dx = e.changedTouches[0].clientX - startX
+      const dx       = e.changedTouches[0].clientX - startX
       const velocity = Math.abs(dx) / Math.max(Date.now() - startMs, 1)
-      const screenW = window.innerWidth
-      if (Math.abs(dx) > screenW * 0.25 || velocity > 0.35) {
-        // On session screen: left → Plan, right → rubber band (session is leftmost)
-        if (dx < 0) navigate('/planner')
-        // dx > 0: already at leftmost, do nothing
+      const screenW  = window.innerWidth
+
+      if (dx < 0 && (Math.abs(dx) > screenW * 0.25 || velocity > 0.35)) {
+        // Threshold met → slide session out and navigate to Plan
+        el.style.transition = 'transform 240ms ease-in'
+        el.style.transform  = `translateX(${-screenW}px)`
+        setTimeout(() => {
+          el.style.transition = ''
+          el.style.transform  = ''
+          navigate('/planner')
+        }, 240)
+      } else {
+        // Snap back (rubber band or insufficient drag)
+        reset(true)
       }
     }
 

@@ -31,6 +31,14 @@ function ChangeEntry({ text }) {
 
 const CHANGELOG = [
   {
+    version: '2.0.13',
+    date: '6 jun 2026',
+    changes: [
+      'Mejora: Swipe desde sesión con acompañamiento visual — la pantalla sigue el dedo al deslizar hacia Plan',
+      'Mejora: Rubber band en dirección sin destino desde la pantalla de sesión',
+    ],
+  },
+  {
     version: '2.0.12',
     date: '5 jun 2026',
     changes: [
