@@ -31,6 +31,15 @@ function ChangeEntry({ text }) {
 
 const CHANGELOG = [
   {
+    version: '2.0.18',
+    date: '6 jun 2026',
+    changes: [
+      'Nuevo: SessionPreview en panel 0 — al deslizar hacia sesión se ven los ejercicios en tiempo real',
+      'Mejora: Clic en el círculo desde Plan/Progreso anima el swipe container fuera de pantalla',
+      'Fixed: Parpadeo de sesión durante el swipe de salida (el Outlet se desmonta limpiamente)',
+    ],
+  },
+  {
     version: '2.0.17',
     date: '6 jun 2026',
     changes: [

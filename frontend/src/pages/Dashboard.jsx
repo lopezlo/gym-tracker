@@ -4,6 +4,7 @@ import { Plus, Calendar, CheckCircle, Clock, ChevronRight, X } from 'lucide-reac
 import { api } from '../api/client'
 import { useApp } from '../context/AppContext'
 import BottomSheet from '../components/BottomSheet'
+import SessionPreview from '../components/SessionPreview'
 import dayjs from 'dayjs'
 import 'dayjs/locale/es'
 
@@ -56,8 +57,8 @@ export default function Dashboard() {
     }
   }, [activeSessionId])
 
-  // Panel 0: plain dark bg matching session screen — seamless swipe, no visual noise
-  if (activeSessionId) return <div className="h-full bg-slate-900" />
+  // Panel 0: show session preview (static, uses cache) so swipe reveals real content
+  if (activeSessionId) return <SessionPreview sessionId={String(activeSessionId)} />
 
   // ── Template handlers ──────────────────────────────────────────────────────
   const handleLoadPlan = () =>

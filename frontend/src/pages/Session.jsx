@@ -338,8 +338,7 @@ function AddSetSheet({ exercise, sessionId, sessionSets, onAdded, onClose }) {
   )
 }
 
-// ── Module-level session cache — persists across component mounts ──────────────
-const _sessionCache = {}
+import { sessionCache } from '../utils/sessionCache'
 
 // ── Main page ──────────────────────────────────────────────────────────────────
 export default function Session() {
@@ -349,7 +348,7 @@ export default function Session() {
   const location = useLocation()
 
   // Seed state from cache on mount — no spinner, no animation on re-visit
-  const cached             = _sessionCache[id]
+  const cached             = sessionCache[id]
   const wasInitiallyCached = useRef(!!cached)
 
   const [session, setSession]               = useState(cached?.session ?? null)
@@ -370,8 +369,8 @@ export default function Session() {
 
   // Keep cache in sync whenever sets/timerAnchor change
   useEffect(() => {
-    if (_sessionCache[id]) {
-      _sessionCache[id] = { ..._sessionCache[id], sets, timerAnchor }
+    if (sessionCache[id]) {
+      sessionCache[id] = { ...sessionCache[id], sets, timerAnchor }
     }
   }, [sets, timerAnchor])
 
@@ -385,7 +384,7 @@ export default function Session() {
         const anchor = s.length > 0 ? s[s.length - 1].recorded_at : null
         setTimerAnchor(anchor)
         // Populate / refresh cache
-        _sessionCache[id] = { session: data, sets: s, timerAnchor: anchor }
+        sessionCache[id] = { session: data, sets: s, timerAnchor: anchor }
       })
       .catch(() => { setActiveSession(null); navigate('/dashboard') })
       .finally(() => setLoading(false))
@@ -418,7 +417,7 @@ export default function Session() {
     try {
       if (sets.length === 0) await api.deleteSession(id)
       else await api.endSession(id)
-      delete _sessionCache[id]   // clear cache when session ends
+      delete sessionCache[id]   // clear cache when session ends
       setActiveSession(null)
       navigate('/dashboard')
     } catch (e) { alert(e.message); setEnding(false) }

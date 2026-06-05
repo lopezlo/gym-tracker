@@ -215,7 +215,25 @@ export default function MainLayout() {
     finally { setEndingSession(false) }
   }
 
-  // ── Animated navigation from session to a swipe tab ─────────────────────────
+  // ── Animated navigation FROM a swipe tab TO session ─────────────────────────
+  // Swipe container slides out right, session (Outlet) appears beneath.
+  const navigateToSession = useCallback(() => {
+    if (!activeSessionId) { navigate('/dashboard'); return }
+    const target  = `/session/${activeSessionId}`
+    const wrapper = wrapperRef.current
+    const screenW = window.innerWidth
+    if (!wrapper || !isSwipeTab) { navigate(target); return }
+
+    wrapper.style.transition = 'transform 280ms cubic-bezier(0.4,0,0.2,1)'
+    wrapper.style.transform  = `translateX(${screenW}px)`
+    setTimeout(() => {
+      wrapper.style.transition = ''
+      wrapper.style.transform  = ''
+      navigate(target)
+    }, 280)
+  }, [activeSessionId, isSwipeTab, navigate])
+
+  // ── Animated navigation FROM session TO a swipe tab ──────────────────────────
   // Session slides out left, target tab slides in from right simultaneously.
   // Used both for swipe gestures and nav-bar taps.
   const slideSessionOut = useCallback((targetPath, targetPanelIdx) => {
@@ -240,8 +258,7 @@ export default function MainLayout() {
       wrapper.style.transform  = 'translateX(0)'
 
       setTimeout(() => {
-        el.style.transition      = ''
-        el.style.transform       = ''
+        // Don't reset el.transform — Outlet unmounts when isSwipeTab=true, removing element
         wrapper.style.transition = ''
         wrapper.style.transform  = ''
         navigate(targetPath)
@@ -320,7 +337,7 @@ export default function MainLayout() {
         wrapper.style.transition = `transform ${dur}`
         wrapper.style.transform  = 'translateX(0)'
         setTimeout(() => {
-          el.style.transition = ''; el.style.transform = ''
+          // el unmounts when navigate fires (isSwipeTab=true) — no need to reset
           wrapper.style.transition = ''; wrapper.style.transform = ''
           navigate('/planner')
         }, 240)
@@ -463,7 +480,7 @@ export default function MainLayout() {
           <div className="flex-1 flex items-center justify-center">
             <div style={{ animation: activeSessionId ? 'gym-pulse-active 1.5s ease-out infinite' : 'none', borderRadius: '9999px' }}>
               <button
-                onClick={() => navigate(activeSessionId ? `/session/${activeSessionId}` : '/dashboard')}
+                onClick={() => activeSessionId ? navigateToSession() : navigate('/dashboard')}
                 aria-label="Inicio"
                 style={{
                   width:          '52px',
