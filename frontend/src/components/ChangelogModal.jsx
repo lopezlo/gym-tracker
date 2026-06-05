@@ -31,6 +31,14 @@ function ChangeEntry({ text }) {
 
 const CHANGELOG = [
   {
+    version: '2.0.25',
+    date: '7 jun 2026',
+    changes: [
+      'Mejora: Menú más estrecho y centrado — 58% del ancho con mínimo de 250px',
+      'Mejora: Eliminada la rallita deslizante bajo los iconos del menú',
+    ],
+  },
+  {
     version: '2.0.24',
     date: '7 jun 2026',
     changes: [
