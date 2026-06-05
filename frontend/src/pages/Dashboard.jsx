@@ -56,8 +56,12 @@ export default function Dashboard() {
     }
   }, [activeSessionId])
 
-  // Don't render anything while redirect is pending
-  if (activeSessionId) return null
+  // Show spinner while redirect fires (avoids blank panel flash)
+  if (activeSessionId) return (
+    <div className="h-full flex items-center justify-center bg-slate-900">
+      <div className="w-7 h-7 border-2 border-indigo-500/30 border-t-indigo-500 rounded-full animate-spin" />
+    </div>
+  )
 
   // ── Template handlers ──────────────────────────────────────────────────────
   const handleLoadPlan = () =>

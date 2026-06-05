@@ -39,7 +39,10 @@ export default function MainLayout() {
                  : location.pathname === '/planner'   ? 1
                  : 0  // dashboard
 
-  const tabIndexRef = useRef(tabIndex)
+  const tabIndexRef        = useRef(tabIndex)
+  const activeSessionIdRef = useRef(activeSessionId)
+  const prevIsSwipeTabRef  = useRef(isSwipeTab)
+  useEffect(() => { activeSessionIdRef.current = activeSessionId }, [activeSessionId])
 
   const [showSettings,    setShowSettings]    = useState(false)
   const [showLogoutWarn,  setShowLogoutWarn]  = useState(false)
@@ -104,11 +107,15 @@ export default function MainLayout() {
   }
 
   useLayoutEffect(() => {
-    const isInit = !containerRef.current?.dataset.initialized
-    snapTo(tabIndex, !isInit)
-    setPillX(tabIndex, !isInit)
+    const isInit        = !containerRef.current?.dataset.initialized
+    const wasSwipeTab   = prevIsSwipeTabRef.current
+    prevIsSwipeTabRef.current = isSwipeTab
+    // Animate only when already navigating between swipe tabs, not when coming from session
+    const shouldAnimate = !isInit && wasSwipeTab && isSwipeTab
+    snapTo(tabIndex, shouldAnimate)
+    setPillX(tabIndex, shouldAnimate)
     if (containerRef.current) containerRef.current.dataset.initialized = 'true'
-  }, [tabIndex]) // eslint-disable-line react-hooks/exhaustive-deps
+  }, [tabIndex, isSwipeTab]) // eslint-disable-line react-hooks/exhaustive-deps
 
   // ── Non-passive touch listeners ────────────────────────────────────────────
   useEffect(() => {
@@ -170,7 +177,12 @@ export default function MainLayout() {
       if (dx > 0 && idx > 0 && (Math.abs(dx) > DIST_THRESHOLD || velocity > VEL_THRESHOLD)) newTab = idx - 1
 
       if (newTab !== idx) {
-        navigate(newTab === 0 ? '/dashboard' : newTab === 1 ? '/planner' : '/history')
+        if (newTab === 0 && activeSessionIdRef.current) {
+          // Panel 0 (Dashboard) would redirect; go directly to session
+          navigate(`/session/${activeSessionIdRef.current}`)
+        } else {
+          navigate(newTab === 0 ? '/dashboard' : newTab === 1 ? '/planner' : '/history')
+        }
       } else {
         snapTo(idx, true)
         setPillX(idx, true)
@@ -230,9 +242,9 @@ export default function MainLayout() {
       const velocity = Math.abs(dx) / Math.max(Date.now() - startMs, 1)
       const screenW = window.innerWidth
       if (Math.abs(dx) > screenW * 0.25 || velocity > 0.35) {
-        // Swipe right → Inicio, Swipe left → Plan
-        if (dx > 0) navigate('/dashboard')
-        else        navigate('/planner')
+        // On session screen: left → Plan, right → rubber band (session is leftmost)
+        if (dx < 0) navigate('/planner')
+        // dx > 0: already at leftmost, do nothing
       }
     }
 

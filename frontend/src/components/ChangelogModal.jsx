@@ -31,6 +31,16 @@ function ChangeEntry({ text }) {
 
 const CHANGELOG = [
   {
+    version: '2.0.12',
+    date: '5 jun 2026',
+    changes: [
+      'Fixed: Swipe desde Plan hacia entrenamiento ya no muestra pantalla en blanco',
+      'Fixed: Swipe izquierdo desde entrenamiento ya no se queda en blanco',
+      'Fixed: El contenedor de swipe no anima desde panel 0 al volver de una sesión',
+      'Mejora: Swipe derecho en pantalla de sesión actua como borde (rubber band)',
+    ],
+  },
+  {
     version: '2.0.11',
     date: '5 jun 2026',
     changes: [
