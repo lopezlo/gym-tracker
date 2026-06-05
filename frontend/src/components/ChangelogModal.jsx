@@ -1,9 +1,37 @@
 import { X } from 'lucide-react'
 import BottomSheet from './BottomSheet'
 
+// Badge color per entry type — keep consistent across all versions
+const BADGE = {
+  'Nuevo':  'bg-emerald-500/20 text-emerald-400',
+  'Mejora': 'bg-sky-500/20     text-sky-400',
+  'Fixed':  'bg-amber-500/20   text-amber-400',
+}
+
+function ChangeEntry({ text }) {
+  const colon = text.indexOf(':')
+  if (colon === -1) return (
+    <li className="flex items-start gap-2 text-sm text-slate-300">
+      <span className="text-slate-600 mt-0.5 flex-shrink-0">·</span>
+      <span>{text}</span>
+    </li>
+  )
+  const type  = text.slice(0, colon).trim()
+  const body  = text.slice(colon + 1).trim()
+  const color = BADGE[type]
+  return (
+    <li className="flex items-start gap-2 text-sm text-slate-300">
+      {color
+        ? <span className={`text-[10px] px-1.5 py-0.5 rounded font-bold flex-shrink-0 mt-0.5 ${color}`}>{type}</span>
+        : <span className="text-slate-600 mt-0.5 flex-shrink-0">·</span>}
+      <span>{body}</span>
+    </li>
+  )
+}
+
 const CHANGELOG = [
   {
-    version: '2.1.1',
+    version: '2.0.11',
     date: '5 jun 2026',
     changes: [
       'Mejora: Selector de usuario simplificado — menú ⋯ eliminado (edición/eliminación en Ajustes)',
@@ -12,7 +40,7 @@ const CHANGELOG = [
     ],
   },
   {
-    version: '2.1.0',
+    version: '2.0.10',
     date: '5 jun 2026',
     changes: [
       'Fixed: Menú ⋯ en selector de usuario volvía a quedar recortado (overflow-hidden en la tarjeta)',
@@ -427,10 +455,7 @@ export default function ChangelogModal({ onClose }) {
                 </div>
                 <ul className="space-y-1.5">
                   {v.changes.map((c, i) => (
-                    <li key={i} className="flex items-start gap-2 text-sm text-slate-300">
-                      <span className="text-slate-600 mt-0.5 flex-shrink-0 select-none">·</span>
-                      <span>{c}</span>
-                    </li>
+                    <ChangeEntry key={i} text={c} />
                   ))}
                 </ul>
               </div>
