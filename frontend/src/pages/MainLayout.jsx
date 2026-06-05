@@ -461,7 +461,7 @@ export default function MainLayout() {
           bottom:     0,
           left:       '50%',
           transform:  'translateX(-50%)',
-          width:      'clamp(250px, 58%, 380px)',
+          width:      'clamp(280px, 72%, 420px)',
           zIndex:     40,
           padding:    '0 12px 12px',
         }}
