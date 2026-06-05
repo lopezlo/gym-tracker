@@ -321,7 +321,7 @@ export default function MainLayout() {
           <div className="flex-1 flex items-center justify-center">
             <div style={{ animation: activeSessionId ? 'gym-pulse-active 1.5s ease-out infinite' : 'none', borderRadius: '9999px' }}>
               <button
-                onClick={() => navigate('/dashboard')}
+                onClick={() => navigate(activeSessionId ? `/session/${activeSessionId}` : '/dashboard')}
                 aria-label="Inicio"
                 style={{
                   width:          '52px',

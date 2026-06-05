@@ -1,6 +1,6 @@
 import { useState, useEffect, useRef } from 'react'
 import { useNavigate, useLocation } from 'react-router-dom'
-import { Plus, Calendar, CheckCircle, Dumbbell, Clock, ChevronRight, X, Activity } from 'lucide-react'
+import { Plus, Calendar, CheckCircle, Clock, ChevronRight, X } from 'lucide-react'
 import { api } from '../api/client'
 import { useApp } from '../context/AppContext'
 import BottomSheet from '../components/BottomSheet'
@@ -21,7 +21,7 @@ function fmtDur(secs) {
 }
 
 export default function Dashboard() {
-  const { user, activeSessionId, activeSessionStartedAt, setActiveSession } = useApp()
+  const { user, activeSessionId, setActiveSession } = useApp()
   const navigate  = useNavigate()
   const location  = useLocation()
   const isActive  = location.pathname === '/dashboard'
@@ -31,10 +31,7 @@ export default function Dashboard() {
   const [loadedTemplate, setLoadedTemplate] = useState(null)
   const [loading,   setLoading]   = useState(true)
   const [starting,  setStarting]  = useState(false)
-  const [ending,    setEnding]    = useState(false)
-  const [showEndConfirm,    setShowEndConfirm]    = useState(false)
   const [showRoutinePicker, setShowRoutinePicker] = useState(false)
-  const [activeInfo, setActiveInfo] = useState(null)
 
   const todayIdx = new Date().getDay()
   const today    = dayjs()
@@ -52,13 +49,12 @@ export default function Dashboard() {
     }).finally(() => setLoading(false))
   }, [user.id, isActive])
 
-  // Fetch active session details for the "session active" view
+  // If session is active and we land here (via swipe), go directly to the session
   useEffect(() => {
-    if (!activeSessionId) { setActiveInfo(null); return }
-    api.getSession(activeSessionId)
-      .then(s => s.ended_at ? setActiveSession(null) : setActiveInfo(s))
-      .catch(() => setActiveSession(null))
-  }, [activeSessionId])
+    if (isActive && activeSessionId) {
+      navigate(`/session/${activeSessionId}`, { replace: true })
+    }
+  }, [isActive, activeSessionId])
 
   // ── Template handlers ──────────────────────────────────────────────────────
   const handleLoadPlan = () =>
@@ -87,96 +83,8 @@ export default function Dashboard() {
     finally { setStarting(false) }
   }
 
-  // ── End session ────────────────────────────────────────────────────────────
-  const handleEnd = async () => {
-    setEnding(true)
-    try {
-      const s = activeInfo || await api.getSession(activeSessionId)
-      if (!s.sets?.length) await api.deleteSession(activeSessionId)
-      else                  await api.endSession(activeSessionId)
-      setActiveSession(null)
-      setActiveInfo(null)
-      setShowEndConfirm(false)
-    } catch (e) { alert(e.message) }
-    finally { setEnding(false) }
-  }
-
   // ─────────────────────────────────────────────────────────────────────────
-  // VIEW: active session
-  // ─────────────────────────────────────────────────────────────────────────
-  if (activeSessionId) {
-    const setCount = activeInfo?.sets?.length ?? 0
-    return (
-      <div className="h-full flex flex-col items-center justify-center bg-slate-900 px-4 page-in">
-        <div className="w-full max-w-sm space-y-4">
-
-          <div className="bg-slate-800 rounded-2xl p-5 text-center">
-            <div className="w-12 h-12 rounded-2xl bg-emerald-500/15 flex items-center justify-center mx-auto mb-3">
-              <Activity size={22} className="text-emerald-400" />
-            </div>
-            <p className="text-slate-400 text-sm">Sesión en curso</p>
-            {setCount > 0 && (
-              <p className="text-slate-500 text-xs mt-1">
-                {setCount} serie{setCount !== 1 ? 's' : ''} registradas
-              </p>
-            )}
-          </div>
-
-          <button
-            onClick={() => navigate(`/session/${activeSessionId}`)}
-            className="w-full py-4 bg-emerald-600 hover:bg-emerald-500 active:scale-[0.98] text-white font-bold rounded-2xl flex items-center justify-center gap-2 transition-all"
-          >
-            <Activity size={20} />
-            Continuar entrenando
-          </button>
-
-          <button
-            onClick={() => setShowEndConfirm(true)}
-            className="w-full py-3.5 bg-slate-800 hover:bg-slate-700 text-slate-400 hover:text-white font-semibold rounded-2xl transition-colors"
-          >
-            Finalizar sesión
-          </button>
-        </div>
-
-        {showEndConfirm && (
-          <BottomSheet onClose={() => setShowEndConfirm(false)} locked={ending}>
-            {() => (
-              <div className="px-6 pb-6 pt-2 space-y-5">
-                <div className="flex items-center gap-4">
-                  <div className="w-12 h-12 rounded-2xl bg-red-500/15 flex items-center justify-center flex-shrink-0">
-                    <CheckCircle size={22} className="text-red-400" />
-                  </div>
-                  <div>
-                    <h2 className="text-white font-bold text-lg leading-tight">¿Finalizar sesión?</h2>
-                    <p className="text-slate-400 text-sm mt-0.5">
-                      {setCount === 0
-                        ? 'Sin series — la sesión no se guardará'
-                        : `${setCount} serie${setCount !== 1 ? 's' : ''} registradas`}
-                    </p>
-                  </div>
-                </div>
-                <div className="grid grid-cols-2 gap-3">
-                  <button
-                    onClick={() => setShowEndConfirm(false)}
-                    disabled={ending}
-                    className="py-3.5 bg-slate-700 hover:bg-slate-600 disabled:opacity-50 text-white rounded-xl font-semibold transition-colors"
-                  >Seguir</button>
-                  <button
-                    onClick={handleEnd}
-                    disabled={ending}
-                    className="py-3.5 bg-red-600 hover:bg-red-500 disabled:opacity-60 text-white rounded-xl font-semibold transition-colors"
-                  >{ending ? 'Finalizando…' : 'Finalizar'}</button>
-                </div>
-              </div>
-            )}
-          </BottomSheet>
-        )}
-      </div>
-    )
-  }
-
-  // ─────────────────────────────────────────────────────────────────────────
-  // VIEW: no active session — session launcher
+  // VIEW: session launcher (active session handled by redirect above)
   // ─────────────────────────────────────────────────────────────────────────
   const hasTemplateOptions = !loading && (todayRoutines.length > 0 || sessionPlan)
 

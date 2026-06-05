@@ -3,6 +3,13 @@ import BottomSheet from './BottomSheet'
 
 const CHANGELOG = [
   {
+    version: '2.0.9',
+    date: '5 jun 2026',
+    changes: [
+      'Mejora: Al volver a Inicio con entrenamiento activo, va directamente a la sesión sin pantalla intermedia',
+    ],
+  },
+  {
     version: '2.0.8',
     date: '5 jun 2026',
     changes: [
