@@ -3,6 +3,7 @@ import { Outlet, NavLink, useNavigate, useLocation } from 'react-router-dom'
 import { BarChart2, Activity, LogOut, CalendarDays } from 'lucide-react'
 import { useApp } from '../context/AppContext'
 import { api } from '../api/client'
+import { sessionCache } from '../utils/sessionCache'
 import Dashboard from './Dashboard'
 import History from './History'
 import Planner from './Planner'
@@ -190,6 +191,7 @@ export default function MainLayout() {
       const s = await api.getSession(activeSessionId)
       if (!s.sets?.length) await api.deleteSession(activeSessionId)
       else                  await api.endSession(activeSessionId)
+      delete sessionCache[String(activeSessionId)]  // clear stale cache
       setActiveSession(null)
       setShowEndConfirm(false)
       navigate('/dashboard')

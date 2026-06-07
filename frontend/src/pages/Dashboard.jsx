@@ -1,6 +1,6 @@
 import { useState, useEffect, useRef, useCallback } from 'react'
 import { useNavigate, useLocation } from 'react-router-dom'
-import { Plus, Calendar, CheckCircle, Clock, ChevronRight, X } from 'lucide-react'
+import { Plus, Calendar, CheckCircle, Clock, ChevronRight, X, Dumbbell } from 'lucide-react'
 import { api } from '../api/client'
 import { useApp } from '../context/AppContext'
 import BottomSheet from '../components/BottomSheet'
@@ -51,12 +51,14 @@ export default function Dashboard() {
     }).finally(() => setLoading(false))
   }, [user.id, isActive])
 
-  // If session is active, redirect immediately (no flash of the launcher)
+  // Redirect to session only when actually on /dashboard (isActive).
+  // Without isActive guard, handleStart's navigate + this useEffect both fire
+  // simultaneously causing a double-navigate that loses location.state (template).
   useEffect(() => {
-    if (activeSessionId) {
+    if (activeSessionId && isActive) {
       navigate(`/session/${activeSessionId}`, { replace: true })
     }
-  }, [activeSessionId])
+  }, [activeSessionId, isActive])
 
   // Panel 0: show session preview (static, uses cache) so swipe reveals real content
   if (activeSessionId) return <SessionPreview sessionId={String(activeSessionId)} />
