@@ -51,16 +51,25 @@ export default function Dashboard() {
     }).finally(() => setLoading(false))
   }, [user.id, isActive])
 
-  // Redirect to session only when actually on /dashboard (isActive).
-  // Without isActive guard, handleStart's navigate + this useEffect both fire
-  // simultaneously causing a double-navigate that loses location.state (template).
+  // ── Hooks MUST all be called before any early return ──────────────────────
+  const scrollRef = useRef(null)
+
+  const handleRefresh = useCallback(
+    () => new Promise(() => window.location.reload()),
+    []
+  )
+
+  // Redirect to session only when actually on /dashboard (isActive guard prevents
+  // double-navigate: handleStart already navigates, this would fire a second time
+  // and clobber location.state / cause unexpected remount).
   useEffect(() => {
     if (activeSessionId && isActive) {
       navigate(`/session/${activeSessionId}`, { replace: true })
     }
   }, [activeSessionId, isActive])
 
-  // Panel 0: show session preview (static, uses cache) so swipe reveals real content
+  // Panel 0: show session preview (static, uses cache) so swipe reveals real content.
+  // Early return MUST come after all hooks above.
   if (activeSessionId) return <SessionPreview sessionId={String(activeSessionId)} />
 
   // ── Template handlers ──────────────────────────────────────────────────────
@@ -91,15 +100,9 @@ export default function Dashboard() {
   }
 
   // ─────────────────────────────────────────────────────────────────────────
-  // VIEW: session launcher (active session handled by redirect above)
+  // VIEW: session launcher
   // ─────────────────────────────────────────────────────────────────────────
   const hasTemplateOptions = !loading && (todayRoutines.length > 0 || sessionPlan)
-  const scrollRef = useRef(null)
-
-  const handleRefresh = useCallback(
-    () => new Promise(() => window.location.reload()),
-    []
-  )
 
   return (
     <PullToRefresh onRefresh={handleRefresh} scrollRef={scrollRef}>
