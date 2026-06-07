@@ -31,6 +31,13 @@ function ChangeEntry({ text }) {
 
 const CHANGELOG = [
   {
+    version: '2.1.2',
+    date: '7 jun 2026',
+    changes: [
+      'Fixed: Causa raíz de la pantalla en blanco — violación de Rules of Hooks en Dashboard (useRef y useCallback después de un early return)',
+    ],
+  },
+  {
     version: '2.1.1',
     date: '7 jun 2026',
     changes: [
