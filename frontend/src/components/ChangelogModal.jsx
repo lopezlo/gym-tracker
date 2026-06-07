@@ -31,6 +31,15 @@ function ChangeEntry({ text }) {
 
 const CHANGELOG = [
   {
+    version: '2.1.1',
+    date: '7 jun 2026',
+    changes: [
+      'Fixed: Pantalla en blanco al iniciar sesión con rutina cargada (Dumbbell no importado)',
+      'Fixed: Doble navegación al iniciar sesión — el template de ejercicios ya no se pierde',
+      'Fixed: sessionCache no se limpiaba al finalizar desde el header',
+    ],
+  },
+  {
     version: '2.1.0',
     date: '7 jun 2026',
     changes: [
