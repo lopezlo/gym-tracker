@@ -244,7 +244,7 @@ export default function SettingsSheet({ onClose }) {
                         { n: 3, label: '3 antes' },
                       ].map(({ n, label }) => (
                         <div key={n} className="bg-slate-600/60 rounded-xl py-2 text-center">
-                          <p className="text-indigo-400 font-bold text-sm">RiR{n}</p>
+                          <p className="text-indigo-400 font-bold text-sm">RiR {n}</p>
                           <p className="text-slate-500 text-[10px] mt-0.5">{label}</p>
                         </div>
                       ))}

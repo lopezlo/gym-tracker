@@ -32,6 +32,7 @@ pool.query(`CREATE TABLE IF NOT EXISTS session_plan_exercises (
   "order"  INTEGER NOT NULL DEFAULT 0
 )`).catch(() => {})
 pool.query(`ALTER TABLE session_plan_exercises ADD COLUMN IF NOT EXISTS sets INTEGER DEFAULT 1`).catch(() => {})
+pool.query(`ALTER TABLE session_plan_exercises ADD COLUMN IF NOT EXISTS series JSONB`).catch(() => {})
 pool.query(`ALTER TABLE session_plan_exercises ADD COLUMN IF NOT EXISTS weight DECIMAL(6,2)`).catch(() => {})
 pool.query(`ALTER TABLE session_plan_exercises ADD COLUMN IF NOT EXISTS reps_min INTEGER`).catch(() => {})
 pool.query(`ALTER TABLE session_plan_exercises ADD COLUMN IF NOT EXISTS reps_max INTEGER`).catch(() => {})

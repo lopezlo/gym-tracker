@@ -43,7 +43,25 @@ function fmtSet(s) {
   if (s.weight != null) parts.push(`${s.weight}kg`)
   if (s.reps != null) parts.push(`×${s.reps}`)
   const main = parts.join(' ') || '—'
-  return s.rir != null ? `${main} · RiR${s.rir}` : main
+  return s.rir != null ? `${main} · RiR ${s.rir}` : main
+}
+
+// Resumen legible de una serie del plan
+function seriesSummary(series, type = 'reps') {
+  if (type === 'time') {
+    return series.duration ? `${series.duration} min` : '—'
+  }
+  const parts = []
+  if (series.weight != null) parts.push(`${series.weight}kg`)
+  if (series.reps_min != null) {
+    parts.push(
+      series.reps_min === series.reps_max || series.reps_max == null
+        ? `${series.reps_min} reps`
+        : `${series.reps_min}–${series.reps_max} reps`
+    )
+  }
+  if (series.rir != null) parts.push(`RiR ${series.rir}`)
+  return parts.join(' · ') || 'Sin objetivo'
 }
 
 function playAlert() {
@@ -120,41 +138,66 @@ function RestTimer({ lastSetAt }) {
 
 // ── Ghost Card (planned, not yet started) ─────────────────────────────────────
 function GhostCard({ exercise, onStart }) {
-  // Build target summary (from plan config)
-  const target = (() => {
-    const parts = []
-    if (exercise.sets > 1) parts.push(`${exercise.sets} series`)
-    if (exercise.type !== 'time') {
-      if (exercise.weight != null) parts.push(`${exercise.weight}kg`)
-      if (exercise.reps_min != null) {
-        parts.push(exercise.reps_min === exercise.reps_max || exercise.reps_max == null
-          ? `${exercise.reps_min} reps`
-          : `${exercise.reps_min}–${exercise.reps_max} reps`)
-      }
-    }
-    return parts.join(' · ')
-  })()
+  const hasSeries = exercise.series?.length > 0
 
   return (
     <div className="bg-slate-800/50 border border-dashed border-slate-700 rounded-2xl p-4">
-      <div className="flex items-center gap-2 mb-1.5">
+      <div className="flex items-center gap-2 mb-2.5">
         {exercise.type === 'time'
           ? <Clock size={14} className="text-amber-400/50 flex-shrink-0" />
           : <Dumbbell size={14} className="text-indigo-400/50 flex-shrink-0" />}
         <h4 className="text-slate-500 font-semibold text-sm flex-1 truncate">{exercise.name}</h4>
         <span className="text-[10px] text-slate-600 flex-shrink-0 font-medium uppercase tracking-wide">planificado</span>
       </div>
-      {target && (
-        <p className="text-slate-600 text-xs mb-3 pl-5">{target}</p>
+
+      {hasSeries ? (
+        /* Series del plan como filas tapeables */
+        <div className="space-y-1.5">
+          {exercise.series.map((series, i) => (
+            <button
+              key={i}
+              onClick={() => onStart({
+                id: exercise.id, name: exercise.name, type: exercise.type,
+                planSeries: series,
+              })}
+              className="w-full flex items-center gap-2.5 py-2 px-3 rounded-xl bg-slate-700/50 hover:bg-indigo-500/10 border border-transparent hover:border-indigo-500/40 active:bg-indigo-500/20 transition-colors text-left"
+            >
+              <span className="text-slate-600 text-xs w-4 text-right flex-shrink-0">{i + 1}</span>
+              <span className="text-slate-400 text-xs flex-1">{seriesSummary(series, exercise.type)}</span>
+              <ChevronRight size={13} className="text-slate-600 flex-shrink-0" />
+            </button>
+          ))}
+        </div>
+      ) : (
+        /* Rutina o ejercicio sin series configuradas */
+        <>
+          {exercise.sets > 1 && (
+            <p className="text-slate-600 text-xs mb-2.5 pl-1">{exercise.sets} series</p>
+          )}
+          <button
+            onClick={() => onStart(exercise)}
+            className="w-full flex items-center justify-center gap-1.5 py-2 rounded-xl border border-dashed border-slate-700 hover:border-indigo-500 hover:bg-indigo-500/10 text-slate-600 hover:text-indigo-400 active:bg-indigo-500/20 transition-colors text-sm"
+          >
+            <Plus size={14} />
+            Empezar
+          </button>
+        </>
       )}
-      <button
-        onClick={() => onStart(exercise)}
-        className="w-full flex items-center justify-center gap-1.5 py-2 rounded-xl border border-dashed border-slate-700 hover:border-indigo-500 hover:bg-indigo-500/10 text-slate-600 hover:text-indigo-400 active:bg-indigo-500/20 transition-colors text-sm"
-      >
-        <Plus size={14} />
-        Empezar
-      </button>
     </div>
+  )
+}
+
+// ── Pending series row (plan series after exercise has some sets logged) ────────
+function PendingSeriesRow({ idx, series, type, onClick }) {
+  return (
+    <button
+      onClick={onClick}
+      className="w-full flex items-center gap-2.5 py-2 px-3 rounded-xl bg-slate-800/50 border border-dashed border-slate-700 hover:border-indigo-500/50 hover:bg-indigo-500/5 active:bg-indigo-500/10 transition-colors text-left"
+    >
+      <span className="text-slate-600 text-xs w-4 text-right flex-shrink-0">{idx + 1}</span>
+      <span className="text-slate-500 text-xs flex-1">{seriesSummary(series, type)}</span>
+      <ChevronRight size={12} className="text-slate-700 flex-shrink-0" />
+    </button>
   )
 }
 
@@ -209,11 +252,14 @@ const RIR_LABELS = ['Al fallo', '1 antes del fallo', '2 antes del fallo', '3 ant
 
 // ── Add Set Sheet ──────────────────────────────────────────────────────────────
 function AddSetSheet({ exercise, sessionId, sessionSets, onAdded, onClose }) {
-  const { user } = useApp()
+  const { user }    = useApp()
+  const planSeries  = exercise.planSeries ?? null   // {weight, reps_min, reps_max, rir}
+  const lockedRir   = planSeries?.rir ?? null       // RiR del plan → mostrar como leyenda
+
   const [weight, setWeight]     = useState('')
   const [reps, setReps]         = useState('')
   const [duration, setDuration] = useState('')
-  const [rir, setRir]           = useState(null)   // null | 0 | 1 | 2 | 3
+  const [rir, setRir]           = useState(lockedRir)
   const [adding, setAdding]     = useState(false)
 
   const { rirEnabled = false } = useMemo(() => {
@@ -222,32 +268,32 @@ function AddSetSheet({ exercise, sessionId, sessionSets, onAdded, onClose }) {
 
   const setsForEx = sessionSets.filter(s => s.exercise_id === exercise.id)
 
-  // Pre-fill: last in-session set → plan target → historical last set
+  // Pre-fill: último en sesión → objetivo del plan → histórico
   useEffect(() => {
     const lastInSession = [...setsForEx].reverse()[0]
     if (lastInSession) {
       if (exercise.type === 'reps') {
         setWeight(lastInSession.weight != null ? String(lastInSession.weight) : '')
         setReps(lastInSession.reps != null ? String(lastInSession.reps) : '')
-        if (lastInSession.rir != null) setRir(lastInSession.rir)
+        if (lockedRir === null && lastInSession.rir != null) setRir(lastInSession.rir)
       } else {
         setDuration(lastInSession.duration != null ? String(lastInSession.duration / 60) : '')
       }
       return
     }
-    // No in-session history — prefer plan target, then historical
-    const hasPlanTarget = exercise.weight != null || exercise.reps_min != null
-    if (hasPlanTarget && exercise.type === 'reps') {
-      if (exercise.weight != null) setWeight(String(exercise.weight))
-      if (exercise.reps_min != null) setReps(String(exercise.reps_min))
+    // Sin series en sesión — usa objetivo del plan primero
+    if (planSeries && exercise.type === 'reps') {
+      if (planSeries.weight != null) setWeight(String(planSeries.weight))
+      if (planSeries.reps_min != null) setReps(String(planSeries.reps_min))
       return
     }
+    // Fallback: última serie histórica
     api.getLastSet(exercise.id, user.id).then(last => {
       if (!last) return
       if (exercise.type === 'reps') {
         setWeight(last.weight != null ? String(last.weight) : '')
         setReps(last.reps != null ? String(last.reps) : '')
-        if (last.rir != null) setRir(last.rir)
+        if (lockedRir === null && last.rir != null) setRir(last.rir)
       } else {
         setDuration(last.duration != null ? String(last.duration / 60) : '')
       }
@@ -270,23 +316,11 @@ function AddSetSheet({ exercise, sessionId, sessionSets, onAdded, onClose }) {
     } catch (e) { alert(e.message); setAdding(false) }
   }
 
-  // Plan target hint (shown if exercise has configured targets)
-  const planHint = (() => {
-    if (exercise.type === 'time' || setsForEx.length > 0) return null
-    const parts = []
-    if (exercise.weight != null) parts.push(`${exercise.weight}kg`)
-    if (exercise.reps_min != null)
-      parts.push(exercise.reps_min === exercise.reps_max || exercise.reps_max == null
-        ? `${exercise.reps_min} reps`
-        : `${exercise.reps_min}–${exercise.reps_max} reps`)
-    return parts.length ? parts.join(' × ') : null
-  })()
-
   return (
     <BottomSheet onClose={onClose} locked={adding}>
       {() => (
         <div className="px-5 pb-8 pt-2 space-y-4">
-          {/* Title */}
+          {/* Título + objetivo */}
           <div>
             <div className="flex items-center gap-2.5">
               {exercise.type === 'time'
@@ -297,14 +331,15 @@ function AddSetSheet({ exercise, sessionId, sessionSets, onAdded, onClose }) {
                 Serie {setsForEx.length + 1}
               </span>
             </div>
-            {planHint && (
+            {/* Objetivo del plan */}
+            {planSeries && (
               <p className="text-slate-600 text-xs mt-1 pl-6">
-                Objetivo: <span className="text-slate-500">{planHint}</span>
+                Objetivo: <span className="text-slate-500">{seriesSummary(planSeries, exercise.type)}</span>
               </p>
             )}
           </div>
 
-          {/* Previous sets chips (reference) */}
+          {/* Series anteriores de esta sesión */}
           {setsForEx.length > 0 && (
             <div className="flex flex-wrap gap-1.5">
               {setsForEx.map((s, i) => (
@@ -324,37 +359,29 @@ function AddSetSheet({ exercise, sessionId, sessionSets, onAdded, onClose }) {
               <div className="space-y-1.5">
                 <label className="text-xs text-slate-400 font-medium">Peso (kg)</label>
                 <div className="flex items-center gap-1">
-                  <button
-                    onClick={() => stepVal(weight, setWeight, -2.5, true)}
-                    className="w-9 h-9 bg-slate-700 hover:bg-slate-600 rounded-lg text-white font-bold flex-shrink-0 transition-colors"
-                  >−</button>
+                  <button onClick={() => stepVal(weight, setWeight, -2.5, true)}
+                    className="w-9 h-9 bg-slate-700 hover:bg-slate-600 rounded-lg text-white font-bold flex-shrink-0 transition-colors">−</button>
                   <input
                     type="number" inputMode="decimal" value={weight}
                     onChange={e => setWeight(e.target.value)} placeholder="0"
                     className="flex-1 bg-slate-700 text-white text-center rounded-lg py-2.5 outline-none focus:ring-2 focus:ring-indigo-500 text-sm font-semibold w-0"
                   />
-                  <button
-                    onClick={() => stepVal(weight, setWeight, 2.5, true)}
-                    className="w-9 h-9 bg-slate-700 hover:bg-slate-600 rounded-lg text-white font-bold flex-shrink-0 transition-colors"
-                  >+</button>
+                  <button onClick={() => stepVal(weight, setWeight, 2.5, true)}
+                    className="w-9 h-9 bg-slate-700 hover:bg-slate-600 rounded-lg text-white font-bold flex-shrink-0 transition-colors">+</button>
                 </div>
               </div>
               <div className="space-y-1.5">
                 <label className="text-xs text-slate-400 font-medium">Repeticiones</label>
                 <div className="flex items-center gap-1">
-                  <button
-                    onClick={() => stepVal(reps, setReps, -1)}
-                    className="w-9 h-9 bg-slate-700 hover:bg-slate-600 rounded-lg text-white font-bold flex-shrink-0 transition-colors"
-                  >−</button>
+                  <button onClick={() => stepVal(reps, setReps, -1)}
+                    className="w-9 h-9 bg-slate-700 hover:bg-slate-600 rounded-lg text-white font-bold flex-shrink-0 transition-colors">−</button>
                   <input
                     type="number" inputMode="numeric" value={reps}
                     onChange={e => setReps(e.target.value)} placeholder="0"
                     className="flex-1 bg-slate-700 text-white text-center rounded-lg py-2.5 outline-none focus:ring-2 focus:ring-indigo-500 text-sm font-semibold w-0"
                   />
-                  <button
-                    onClick={() => stepVal(reps, setReps, 1)}
-                    className="w-9 h-9 bg-slate-700 hover:bg-slate-600 rounded-lg text-white font-bold flex-shrink-0 transition-colors"
-                  >+</button>
+                  <button onClick={() => stepVal(reps, setReps, 1)}
+                    className="w-9 h-9 bg-slate-700 hover:bg-slate-600 rounded-lg text-white font-bold flex-shrink-0 transition-colors">+</button>
                 </div>
               </div>
             </div>
@@ -362,44 +389,52 @@ function AddSetSheet({ exercise, sessionId, sessionSets, onAdded, onClose }) {
             <div className="space-y-1.5">
               <label className="text-xs text-slate-400 font-medium">Duración (min)</label>
               <div className="flex items-center gap-2">
-                <button
-                  onClick={() => stepVal(duration, setDuration, -0.5, true)}
-                  className="w-10 h-10 bg-slate-700 hover:bg-slate-600 rounded-xl text-white font-bold flex-shrink-0 transition-colors"
-                >−</button>
+                <button onClick={() => stepVal(duration, setDuration, -0.5, true)}
+                  className="w-10 h-10 bg-slate-700 hover:bg-slate-600 rounded-xl text-white font-bold flex-shrink-0 transition-colors">−</button>
                 <input
                   type="number" inputMode="decimal" value={duration}
                   onChange={e => setDuration(e.target.value)} placeholder="0" step="0.5"
                   className="flex-1 min-w-0 w-0 bg-slate-700 text-white text-center rounded-xl py-2.5 outline-none focus:ring-2 focus:ring-amber-500 text-lg font-bold"
                 />
-                <button
-                  onClick={() => stepVal(duration, setDuration, 0.5, true)}
-                  className="w-10 h-10 bg-slate-700 hover:bg-slate-600 rounded-xl text-white font-bold flex-shrink-0 transition-colors"
-                >+</button>
+                <button onClick={() => stepVal(duration, setDuration, 0.5, true)}
+                  className="w-10 h-10 bg-slate-700 hover:bg-slate-600 rounded-xl text-white font-bold flex-shrink-0 transition-colors">+</button>
               </div>
             </div>
           )}
 
-          {/* RiR selector (only when enabled and exercise is reps-based) */}
+          {/* RiR — bloqueado (del plan) o interactivo */}
           {rirEnabled && exercise.type === 'reps' && (
             <div className="space-y-2">
               <label className="text-xs text-slate-400 font-medium">Repeticiones en Reserva</label>
-              <div className="grid grid-cols-4 gap-1.5">
-                {[0, 1, 2, 3].map(n => (
-                  <button
-                    key={n}
-                    onClick={() => setRir(rir === n ? null : n)}
-                    className={`py-2.5 rounded-xl text-sm font-bold transition-colors ${
-                      rir === n
-                        ? 'bg-indigo-600 text-white'
-                        : 'bg-slate-700 text-slate-400 hover:bg-slate-600'
-                    }`}
-                  >
-                    RiR{n}
-                  </button>
-                ))}
-              </div>
-              {rir !== null && (
-                <p className="text-slate-600 text-xs">{RIR_LABELS[rir]}</p>
+              {lockedRir !== null ? (
+                /* Leyenda — del plan, no editable */
+                <div className="flex items-center gap-2.5">
+                  <span className="bg-indigo-600/20 text-indigo-400 px-2.5 py-1.5 rounded-xl text-sm font-bold">
+                    RiR {lockedRir}
+                  </span>
+                  <span className="text-slate-500 text-xs">{RIR_LABELS[lockedRir]}</span>
+                  <span className="text-slate-700 text-xs">(del plan)</span>
+                </div>
+              ) : (
+                /* Selector interactivo */
+                <>
+                  <div className="grid grid-cols-4 gap-1.5">
+                    {[0, 1, 2, 3].map(n => (
+                      <button
+                        key={n}
+                        onClick={() => setRir(rir === n ? null : n)}
+                        className={`py-2.5 rounded-xl text-sm font-bold transition-colors ${
+                          rir === n ? 'bg-indigo-600 text-white' : 'bg-slate-700 text-slate-400 hover:bg-slate-600'
+                        }`}
+                      >
+                        RiR {n}
+                      </button>
+                    ))}
+                  </div>
+                  {rir !== null && (
+                    <p className="text-slate-600 text-xs">{RIR_LABELS[rir]}</p>
+                  )}
+                </>
               )}
             </div>
           )}
@@ -543,17 +578,39 @@ export default function Session() {
           </div>
         )}
 
-        {/* Real exercise cards */}
-        {[...groupedSets.entries()].map(([exId, group]) => (
-          <ExerciseCard
-            key={exId}
-            exId={exId}
-            group={group}
-            newSetId={newSetId}
-            onAddSet={() => setAddingTo({ id: exId, name: group.name, type: group.type })}
-            onDeleteSet={setConfirmDeleteSet}
-          />
-        ))}
+        {/* Real exercise cards + pending plan series */}
+        {[...groupedSets.entries()].map(([exId, group]) => {
+          const templateEx    = loadedTemplate?.exercises.find(e => e.id === exId)
+          const pendingSeries = templateEx?.series?.slice(group.sets.length) ?? []
+          const nextSeries    = pendingSeries[0] ?? null
+
+          return (
+            <div key={exId} className="space-y-1.5">
+              <ExerciseCard
+                exId={exId}
+                group={group}
+                newSetId={newSetId}
+                onAddSet={() => setAddingTo({
+                  id: exId, name: group.name, type: group.type,
+                  ...(nextSeries ? { planSeries: nextSeries } : {}),
+                })}
+                onDeleteSet={setConfirmDeleteSet}
+              />
+              {pendingSeries.map((series, i) => (
+                <PendingSeriesRow
+                  key={i}
+                  idx={group.sets.length + i}
+                  series={series}
+                  type={group.type}
+                  onClick={() => setAddingTo({
+                    id: exId, name: group.name, type: group.type,
+                    planSeries: series,
+                  })}
+                />
+              ))}
+            </div>
+          )
+        })}
 
         {/* Ghost cards (planned, not yet started) */}
         {ghostExercises.length > 0 && (

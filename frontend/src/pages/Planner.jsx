@@ -8,159 +8,235 @@ import ConfirmModal from '../components/ConfirmModal'
 import PullToRefresh from '../components/PullToRefresh'
 import { getSettings } from '../components/SettingsSheet'
 
-const DAYS      = ['D', 'L', 'M', 'X', 'J', 'V', 'S']
-const DAY_NAMES = ['Domingo', 'Lunes', 'Martes', 'Miércoles', 'Jueves', 'Viernes', 'Sábado']
+// Semana empieza en lunes: [L=1, M=2, X=3, J=4, V=5, S=6, D=0]
+const DAY_ORDER  = [1, 2, 3, 4, 5, 6, 0]
+const DAY_LABELS = { 0: 'D', 1: 'L', 2: 'M', 3: 'X', 4: 'J', 5: 'V', 6: 'S' }
 
-// ── Tiny stepper used inside exercise config rows ─────────────────────────────
-function Stepper({ value, onChange, min = 1, max = 99, step = 1, decimals = false, label, wide = false }) {
+// ── Tiny inline stepper ────────────────────────────────────────────────────────
+function Stepper({ value, onChange, min = 1, max = 99, step = 1, decimals = false, label = '', wide = false }) {
   const dec = () => {
     const v = decimals ? parseFloat(value) || 0 : parseInt(value) || 0
-    const next = Math.max(min, v - step)
-    onChange(decimals ? Math.round(next * 2) / 2 : next)
+    onChange(decimals ? Math.round(Math.max(min, v - step) * 2) / 2 : Math.max(min, v - step))
   }
   const inc = () => {
     const v = decimals ? parseFloat(value) || 0 : parseInt(value) || 0
-    const next = Math.min(max, v + step)
-    onChange(decimals ? Math.round(next * 2) / 2 : next)
+    onChange(decimals ? Math.round(Math.min(max, v + step) * 2) / 2 : Math.min(max, v + step))
   }
   return (
     <div className="flex items-center gap-1">
       <button onClick={dec}
-        className="w-6 h-6 bg-slate-600 hover:bg-slate-500 rounded-lg text-white text-xs font-bold flex items-center justify-center flex-shrink-0 transition-colors">
+        className="w-6 h-6 bg-slate-600 hover:bg-slate-500 rounded-lg text-white text-sm font-bold flex items-center justify-center flex-shrink-0 transition-colors">
         −
       </button>
-      <span className={`text-white text-xs font-semibold text-center flex-shrink-0 ${wide ? 'w-14' : 'w-8'}`}>
+      <span className={`text-white text-xs font-semibold text-center flex-shrink-0 ${wide ? 'w-16' : 'w-8'}`}>
         {value}{label}
       </span>
       <button onClick={inc}
-        className="w-6 h-6 bg-slate-600 hover:bg-slate-500 rounded-lg text-white text-xs font-bold flex items-center justify-center flex-shrink-0 transition-colors">
+        className="w-6 h-6 bg-slate-600 hover:bg-slate-500 rounded-lg text-white text-sm font-bold flex items-center justify-center flex-shrink-0 transition-colors">
         +
       </button>
     </div>
   )
 }
 
-// ── Routine exercise row (with sets stepper) ──────────────────────────────────
-function RoutineExItem({ ex, onRemove, onUpdate }) {
-  const isTime = ex.type === 'time'
+// ── Series row inside plan exercise card ──────────────────────────────────────
+function SeriesRow({ idx, series, isTime, rirEnabled, onChange, onRemove, canRemove }) {
   return (
-    <div className="bg-slate-700/70 rounded-xl px-3 py-2.5 flex items-center gap-2">
-      {isTime
-        ? <Clock size={14} className="text-amber-400 flex-shrink-0" />
-        : <Dumbbell size={14} className="text-indigo-400 flex-shrink-0" />}
-      <span className="text-white text-sm flex-1 truncate">{ex.name}</span>
-      <Stepper
-        value={ex.sets ?? 1}
-        onChange={v => onUpdate(ex.id, 'sets', v)}
-        min={1} max={20} label="×"
-      />
-      <button
-        onClick={() => onRemove(ex.id)}
-        className="p-1 text-slate-500 hover:text-red-400 transition-colors flex-shrink-0 ml-1"
-      >
-        <X size={14} />
-      </button>
+    <div className="bg-slate-600/40 rounded-xl px-2.5 py-2 space-y-2">
+      {/* Número + controles */}
+      <div className="flex items-center gap-2 flex-wrap">
+        <span className="text-slate-500 text-xs w-4 text-center flex-shrink-0">{idx + 1}</span>
+
+        {isTime ? (
+          <Stepper
+            value={series.duration ?? 1} label=" min" wide
+            onChange={v => onChange('duration', v || null)}
+            min={0.5} max={120} step={0.5} decimals
+          />
+        ) : (
+          <>
+            {/* Peso */}
+            {series.weight === null ? (
+              <button
+                onClick={() => onChange('weight', 20)}
+                className="text-xs text-slate-500 hover:text-indigo-400 px-2 py-1 bg-slate-700/70 rounded-lg border border-dashed border-slate-600 hover:border-indigo-500 transition-colors">
+                + kg
+              </button>
+            ) : (
+              <Stepper
+                value={series.weight} label="kg" wide
+                onChange={v => onChange('weight', v === 0 ? null : v)}
+                min={0} max={500} step={2.5} decimals
+              />
+            )}
+
+            {/* Reps o rango */}
+            {!rirEnabled ? (
+              <Stepper
+                value={series.reps_min ?? 8} label=" rep"
+                onChange={v => { onChange('reps_min', v); onChange('reps_max', v) }}
+                min={1} max={99}
+              />
+            ) : (
+              <div className="flex items-center gap-1">
+                <Stepper
+                  value={series.reps_min ?? 8}
+                  onChange={v => onChange('reps_min', Math.min(v, series.reps_max ?? 12))}
+                  min={1} max={99}
+                />
+                <span className="text-slate-600 text-xs">–</span>
+                <Stepper
+                  value={series.reps_max ?? 12} label=" rep"
+                  onChange={v => onChange('reps_max', Math.max(v, series.reps_min ?? 8))}
+                  min={1} max={99}
+                />
+              </div>
+            )}
+          </>
+        )}
+
+        {canRemove && (
+          <button onClick={onRemove}
+            className="p-1 text-slate-600 hover:text-red-400 transition-colors ml-auto flex-shrink-0">
+            <X size={12} />
+          </button>
+        )}
+      </div>
+
+      {/* Selector RiR */}
+      {rirEnabled && !isTime && (
+        <div className="flex gap-1 pl-5">
+          {[0, 1, 2, 3].map(n => (
+            <button
+              key={n}
+              onClick={() => onChange('rir', series.rir === n ? null : n)}
+              className={`flex-1 py-1 rounded-lg text-[11px] font-semibold transition-colors ${
+                series.rir === n
+                  ? 'bg-indigo-600 text-white'
+                  : 'bg-slate-700 text-slate-500 hover:bg-slate-600'
+              }`}>
+              RiR {n}
+            </button>
+          ))}
+        </div>
+      )}
     </div>
   )
 }
 
-// ── Plan exercise row (sets + weight + reps/range) ────────────────────────────
-function PlanExItem({ ex, rirEnabled, onRemove, onUpdate }) {
+// ── Plan exercise card with per-series config ──────────────────────────────────
+function PlanExItem({ ex, rirEnabled, onRemove, onUpdateSeries, onAddSeries, onRemoveSeries }) {
   const isTime = ex.type === 'time'
-  const sets     = ex.sets ?? 1
-  const weight   = ex.weight ?? null
-  const repsMin  = ex.reps_min ?? 8
-  const repsMax  = ex.reps_max ?? (rirEnabled ? 12 : repsMin)
-
   return (
     <div className="bg-slate-700/70 rounded-xl overflow-hidden">
-      {/* Name row */}
-      <div className="flex items-center gap-2.5 px-3 pt-2.5 pb-1.5">
+      {/* Cabecera con nombre */}
+      <div className="flex items-center gap-2.5 px-3 pt-2.5 pb-2">
         {isTime
           ? <Clock size={14} className="text-amber-400 flex-shrink-0" />
           : <Dumbbell size={14} className="text-indigo-400 flex-shrink-0" />}
-        <span className="text-white text-sm flex-1 truncate">{ex.name}</span>
-        <button
-          onClick={() => onRemove(ex.id)}
-          className="p-1 text-slate-500 hover:text-red-400 transition-colors flex-shrink-0"
-        >
+        <span className="text-white text-sm font-medium flex-1 truncate">{ex.name}</span>
+        <button onClick={() => onRemove(ex.id)}
+          className="p-1 text-slate-500 hover:text-red-400 transition-colors flex-shrink-0">
           <X size={14} />
         </button>
       </div>
 
-      {/* Config row */}
-      <div className="flex flex-wrap items-center gap-x-3 gap-y-1.5 px-3 pb-2.5">
-        {/* Sets */}
-        <div className="flex items-center gap-1.5">
-          <span className="text-slate-500 text-[11px]">Series</span>
-          <Stepper value={sets} onChange={v => onUpdate(ex.id, 'sets', v)} min={1} max={20} />
-        </div>
+      {/* Series */}
+      <div className="px-3 pb-3 space-y-1.5">
+        {ex.series.map((s, i) => (
+          <SeriesRow
+            key={i}
+            idx={i}
+            series={s}
+            isTime={isTime}
+            rirEnabled={rirEnabled}
+            onChange={(field, val) => onUpdateSeries(ex.id, i, field, val)}
+            onRemove={() => onRemoveSeries(ex.id, i)}
+            canRemove={ex.series.length > 1}
+          />
+        ))}
+        <button
+          onClick={() => onAddSeries(ex.id)}
+          className="w-full flex items-center justify-center gap-1.5 py-2 rounded-xl border border-dashed border-slate-600 hover:border-indigo-500 hover:bg-indigo-500/10 text-slate-500 hover:text-indigo-400 transition-colors text-xs font-medium">
+          <Plus size={12} />
+          Añadir serie
+        </button>
+      </div>
+    </div>
+  )
+}
 
-        {/* Weight (reps exercises only) */}
-        {!isTime && (
-          <div className="flex items-center gap-1.5">
-            <span className="text-slate-500 text-[11px]">Peso</span>
-            {weight === null ? (
-              <button
-                onClick={() => onUpdate(ex.id, 'weight', 20)}
-                className="text-[11px] text-indigo-400 hover:text-indigo-300 transition-colors px-1.5 py-0.5 bg-indigo-500/10 rounded-lg"
-              >+ Añadir</button>
-            ) : (
-              <div className="flex items-center gap-1">
-                <Stepper
-                  value={weight}
-                  onChange={v => onUpdate(ex.id, 'weight', v === 0 ? null : v)}
-                  min={0} max={500} step={2.5} decimals wide
-                  label="kg"
-                />
-              </div>
-            )}
-          </div>
-        )}
-
-        {/* Reps — single value (no RiR) */}
-        {!isTime && !rirEnabled && (
-          <div className="flex items-center gap-1.5">
-            <span className="text-slate-500 text-[11px]">Reps</span>
-            <Stepper
-              value={repsMin}
-              onChange={v => { onUpdate(ex.id, 'reps_min', v); onUpdate(ex.id, 'reps_max', v) }}
-              min={1} max={99}
-            />
-          </div>
-        )}
-
-        {/* Reps range (RiR mode) */}
-        {!isTime && rirEnabled && (
-          <div className="flex items-center gap-1.5">
-            <span className="text-slate-500 text-[11px]">Reps</span>
-            <Stepper
-              value={repsMin}
-              onChange={v => onUpdate(ex.id, 'reps_min', Math.min(v, repsMax))}
-              min={1} max={99}
-            />
-            <span className="text-slate-600 text-[11px]">–</span>
-            <Stepper
-              value={repsMax}
-              onChange={v => onUpdate(ex.id, 'reps_max', Math.max(v, repsMin))}
-              min={1} max={99}
-            />
-          </div>
+// ── Routine exercise row (series como chips visuales) ──────────────────────────
+function RoutineExItem({ ex, onRemove, onUpdate }) {
+  const sets = ex.sets ?? 1
+  return (
+    <div className="bg-slate-700/70 rounded-xl px-3 py-2.5 space-y-2">
+      {/* Nombre */}
+      <div className="flex items-center gap-2.5">
+        {ex.type === 'time'
+          ? <Clock size={14} className="text-amber-400 flex-shrink-0" />
+          : <Dumbbell size={14} className="text-indigo-400 flex-shrink-0" />}
+        <span className="text-white text-sm flex-1 truncate">{ex.name}</span>
+        <button onClick={() => onRemove(ex.id)}
+          className="p-1 text-slate-500 hover:text-red-400 transition-colors flex-shrink-0">
+          <X size={14} />
+        </button>
+      </div>
+      {/* Serie chips */}
+      <div className="flex flex-wrap items-center gap-1.5 pl-5">
+        {Array.from({ length: sets }, (_, i) => (
+          <span key={i}
+            className="text-xs bg-slate-600 text-slate-300 rounded-lg px-2.5 py-1 font-medium select-none">
+            {i + 1}
+          </span>
+        ))}
+        <button
+          onClick={() => onUpdate(ex.id, 'sets', sets + 1)}
+          className="text-xs text-indigo-400 hover:text-indigo-300 px-2.5 py-1 bg-indigo-500/10 rounded-lg transition-colors flex items-center gap-1">
+          <Plus size={10} /> Serie
+        </button>
+        {sets > 1 && (
+          <button
+            onClick={() => onUpdate(ex.id, 'sets', sets - 1)}
+            className="text-xs text-slate-600 hover:text-red-400 px-1.5 py-1 rounded-lg transition-colors">
+            <Minus size={11} />
+          </button>
         )}
       </div>
     </div>
   )
 }
 
+// ── Helper: resumen compacto de un ejercicio del plan ─────────────────────────
+function planExSummary(ex) {
+  const series = ex.series
+  if (!series?.length) return `${ex.sets ?? 1}×`
+  const sets = series.length
+  const weights = [...new Set(series.map(s => s.weight).filter(Boolean))]
+  const allRepsMin = series.map(s => s.reps_min).filter(Boolean)
+  const allRepsMax = series.map(s => s.reps_max).filter(Boolean)
+  const parts = [`${sets}×`]
+  if (ex.type !== 'time') {
+    if (weights.length === 1) parts.push(`${weights[0]}kg`)
+    else if (weights.length > 1) parts.push(`${weights[0]}–${weights[weights.length - 1]}kg`)
+    if (allRepsMin.length) {
+      const rMin = Math.min(...allRepsMin)
+      const rMax = Math.max(...allRepsMax.length ? allRepsMax : allRepsMin)
+      parts.push(rMin === rMax ? `${rMin} reps` : `${rMin}–${rMax} reps`)
+    }
+  }
+  return parts.join(' ')
+}
+
 // ── Routine editor sheet ───────────────────────────────────────────────────────
 function RoutineEditor({ routine, userId, onSave, onClose }) {
-  const [name, setName]           = useState(routine?.name ?? '')
-  const [days, setDays]           = useState(routine?.days ?? [])
+  const [name, setName]     = useState(routine?.name ?? '')
+  const [days, setDays]     = useState(routine?.days ?? [])
   const [exercises, setExercises] = useState(
     () => (routine?.exercises ?? []).map(e => ({ ...e, sets: e.sets ?? 1 }))
   )
   const [showSelector, setShowSelector] = useState(false)
-  const [saving, setSaving]       = useState(false)
+  const [saving, setSaving] = useState(false)
 
   const toggleDay = (d) =>
     setDays(prev => prev.includes(d) ? prev.filter(x => x !== d) : [...prev, d])
@@ -190,7 +266,7 @@ function RoutineEditor({ routine, userId, onSave, onClose }) {
               {routine ? 'Editar rutina' : 'Nueva rutina'}
             </h2>
 
-            {/* Name */}
+            {/* Nombre */}
             <div>
               <label className="text-xs text-slate-400 font-medium block mb-1.5">Nombre</label>
               <input
@@ -202,27 +278,27 @@ function RoutineEditor({ routine, userId, onSave, onClose }) {
               />
             </div>
 
-            {/* Days */}
+            {/* Días (semana empieza lunes) */}
             <div>
               <label className="text-xs text-slate-400 font-medium block mb-2">Días</label>
               <div className="flex gap-1.5">
-                {DAYS.map((d, i) => (
+                {DAY_ORDER.map(dayIdx => (
                   <button
-                    key={i}
-                    onClick={() => toggleDay(i)}
+                    key={dayIdx}
+                    onClick={() => toggleDay(dayIdx)}
                     className={`flex-1 py-2.5 rounded-xl text-xs font-bold transition-colors ${
-                      days.includes(i)
+                      days.includes(dayIdx)
                         ? 'bg-indigo-600 text-white'
                         : 'bg-slate-700 text-slate-400 hover:bg-slate-600'
                     }`}
                   >
-                    {d}
+                    {DAY_LABELS[dayIdx]}
                   </button>
                 ))}
               </div>
             </div>
 
-            {/* Exercises */}
+            {/* Ejercicios */}
             <div>
               <div className="flex items-center justify-between mb-2">
                 <label className="text-xs text-slate-400 font-medium">Ejercicios</label>
@@ -273,26 +349,57 @@ function RoutineEditor({ routine, userId, onSave, onClose }) {
 function PlanEditor({ plan, userId, onSave, onClose }) {
   const rirEnabled = getSettings().rirEnabled ?? false
 
+  const defaultSeries = () => ({
+    weight: null,
+    reps_min: 8,
+    reps_max: rirEnabled ? 12 : 8,
+    rir: null,
+  })
+
   const initExercise = (ex) => ({
     id: ex.id, name: ex.name, type: ex.type,
-    sets:     ex.sets     ?? 1,
-    weight:   ex.weight   ?? null,
-    reps_min: ex.reps_min ?? 8,
-    reps_max: ex.reps_max ?? (rirEnabled ? 12 : 8),
+    series: ex.series?.length
+      ? ex.series
+      : Array.from({ length: ex.sets ?? 1 }, () => ({
+          weight:   ex.weight   ?? null,
+          reps_min: ex.reps_min ?? 8,
+          reps_max: ex.reps_max ?? (rirEnabled ? 12 : 8),
+          rir:      null,
+        })),
   })
 
   const [exercises, setExercises] = useState(() => (plan?.exercises ?? []).map(initExercise))
   const [showSelector, setShowSelector] = useState(false)
-  const [saving, setSaving]       = useState(false)
+  const [saving, setSaving] = useState(false)
 
   const handleSelect = (ex) => {
     if (!exercises.find(e => e.id === ex.id))
-      setExercises(prev => [...prev, initExercise({ id: ex.id, name: ex.name, type: ex.type })])
+      setExercises(prev => [...prev, { id: ex.id, name: ex.name, type: ex.type, series: [defaultSeries()] }])
     setShowSelector(false)
   }
 
-  const handleUpdate = (id, field, value) =>
-    setExercises(prev => prev.map(e => e.id === id ? { ...e, [field]: value } : e))
+  const handleAddSeries = (exId) => {
+    setExercises(prev => prev.map(e => {
+      if (e.id !== exId) return e
+      const last = e.series[e.series.length - 1] ?? defaultSeries()
+      return { ...e, series: [...e.series, { ...last }] }
+    }))
+  }
+
+  const handleRemoveSeries = (exId, seriesIdx) => {
+    setExercises(prev => prev.map(e => {
+      if (e.id !== exId) return e
+      return { ...e, series: e.series.filter((_, i) => i !== seriesIdx) }
+    }))
+  }
+
+  const handleUpdateSeries = (exId, seriesIdx, field, value) => {
+    setExercises(prev => prev.map(e => {
+      if (e.id !== exId) return e
+      const newSeries = e.series.map((s, i) => i === seriesIdx ? { ...s, [field]: value } : s)
+      return { ...e, series: newSeries }
+    }))
+  }
 
   const handleSave = async () => {
     if (exercises.length === 0) return
@@ -305,22 +412,24 @@ function PlanEditor({ plan, userId, onSave, onClose }) {
     <>
       <BottomSheet onClose={onClose} locked={saving}>
         {() => (
-          <div className="px-5 pb-8 pt-2 space-y-5 overflow-y-auto max-h-[78vh]">
+          <div className="px-5 pb-8 pt-2 space-y-4 overflow-y-auto max-h-[82vh]">
             <div>
               <h2 className="text-white font-bold text-lg">Próximo entrenamiento</h2>
               <p className="text-slate-400 text-sm mt-1">
-                Configura ejercicios, series, peso y repeticiones para tu próxima sesión.
+                Configura series, peso y repeticiones para cada ejercicio.
               </p>
             </div>
 
-            <div className="space-y-2">
+            <div className="space-y-3">
               {exercises.map(ex => (
                 <PlanExItem
                   key={ex.id}
                   ex={ex}
                   rirEnabled={rirEnabled}
                   onRemove={id => setExercises(prev => prev.filter(e => e.id !== id))}
-                  onUpdate={handleUpdate}
+                  onUpdateSeries={handleUpdateSeries}
+                  onAddSeries={handleAddSeries}
+                  onRemoveSeries={handleRemoveSeries}
                 />
               ))}
               <button
@@ -354,32 +463,18 @@ function PlanEditor({ plan, userId, onSave, onClose }) {
   )
 }
 
-// ── Helper: compact plan exercise summary ─────────────────────────────────────
-function planExSummary(ex) {
-  const parts = [`${ex.sets ?? 1}×`]
-  if (ex.type !== 'time') {
-    if (ex.weight) parts.push(`${ex.weight}kg`)
-    const min = ex.reps_min, max = ex.reps_max
-    if (min != null && max != null)
-      parts.push(min === max ? `${min} reps` : `${min}–${max} reps`)
-    else if (min != null)
-      parts.push(`${min} reps`)
-  }
-  return parts.join(' ')
-}
-
 // ── Main page ──────────────────────────────────────────────────────────────────
 export default function Planner({ onModalClose }) {
   const { user } = useApp()
-  const [routines, setRoutines]         = useState([])
-  const [plan, setPlan]                 = useState(null)
-  const [loading, setLoading]           = useState(true)
-  const [editingRoutine, setEditingRoutine] = useState(null) // null | 'new' | routine
-  const [editingPlan, setEditingPlan]   = useState(false)
+  const [routines, setRoutines]             = useState([])
+  const [plan, setPlan]                     = useState(null)
+  const [loading, setLoading]               = useState(true)
+  const [editingRoutine, setEditingRoutine] = useState(null)
+  const [editingPlan, setEditingPlan]       = useState(false)
   const [deletingRoutine, setDeletingRoutine] = useState(null)
-  const [deletingPlan, setDeletingPlan] = useState(false)
+  const [deletingPlan, setDeletingPlan]     = useState(false)
 
-  // Notify MainLayout to re-snap swipe container whenever any modal closes
+  // Notify MainLayout to re-snap when any modal closes
   const isModalOpen = !!(editingRoutine || editingPlan || deletingRoutine || deletingPlan)
   const prevModalOpenRef = useRef(false)
   useEffect(() => {
@@ -387,7 +482,7 @@ export default function Planner({ onModalClose }) {
     prevModalOpenRef.current = isModalOpen
   }, [isModalOpen, onModalClose])
 
-  const todayIdx = new Date().getDay()
+  const todayIdx = new Date().getDay()  // 0=Dom, 1=Lun, …
 
   useEffect(() => {
     Promise.all([
@@ -523,7 +618,6 @@ export default function Planner({ onModalClose }) {
                     key={r.id}
                     className={`bg-slate-800 rounded-2xl px-4 py-3 flex items-center gap-3 ${isToday ? 'ring-1 ring-indigo-500/40' : ''}`}
                   >
-                    {/* Name + exercises preview */}
                     <div className="flex-1 min-w-0">
                       <div className="flex items-center gap-1.5">
                         <h3 className="text-white font-semibold text-sm truncate">{r.name}</h3>
@@ -534,30 +628,29 @@ export default function Planner({ onModalClose }) {
                       <p className="text-slate-600 text-xs truncate mt-0.5">{preview || 'Sin ejercicios'}</p>
                     </div>
 
-                    {/* Day bullets */}
+                    {/* Day bullets — semana empieza lunes */}
                     <div className="flex gap-0.5 flex-shrink-0">
-                      {DAYS.map((d, i) => (
+                      {DAY_ORDER.map(dayIdx => (
                         <span
-                          key={i}
+                          key={dayIdx}
                           className={`w-[18px] h-[18px] rounded flex items-center justify-center text-[9px] font-bold ${
-                            r.days.includes(i)
-                              ? i === todayIdx ? 'bg-indigo-600 text-white' : 'bg-slate-600 text-slate-300'
+                            r.days.includes(dayIdx)
+                              ? dayIdx === todayIdx ? 'bg-indigo-600 text-white' : 'bg-slate-600 text-slate-300'
                               : 'text-slate-700'
                           }`}
-                        >{d}</span>
+                        >{DAY_LABELS[dayIdx]}</span>
                       ))}
                     </div>
 
-                    {/* Actions */}
                     <div className="flex gap-0.5 flex-shrink-0">
-                        <button onClick={() => setEditingRoutine(r)} className="p-1.5 text-slate-500 hover:text-white transition-colors">
-                          <Edit2 size={14} />
-                        </button>
-                        <button onClick={() => setDeletingRoutine(r)} className="p-1.5 text-slate-500 hover:text-red-400 transition-colors">
-                          <Trash2 size={14} />
-                        </button>
-                      </div>
+                      <button onClick={() => setEditingRoutine(r)} className="p-1.5 text-slate-500 hover:text-white transition-colors">
+                        <Edit2 size={14} />
+                      </button>
+                      <button onClick={() => setDeletingRoutine(r)} className="p-1.5 text-slate-500 hover:text-red-400 transition-colors">
+                        <Trash2 size={14} />
+                      </button>
                     </div>
+                  </div>
                 )
               })}
             </div>

@@ -31,6 +31,19 @@ function ChangeEntry({ text }) {
 
 const CHANGELOG = [
   {
+    version: '2.2.1',
+    date: '8 jun 2026',
+    changes: [
+      'Fixed: Vista descuadrada al finalizar sesión — el wrapper ahora se resetea correctamente al volver a los paneles',
+      'Mejora: Pre-plan con series individuales — cada serie tiene su propio peso, reps y RiR configurables',
+      'Mejora: Al entrenar un plan, las series pendientes aparecen como filas tapeables para registrar el resultado',
+      'Mejora: RiR del plan mostrado como leyenda (no editable) al registrar series',
+      'Mejora: Rutinas muestran las series como chips visuales numerados',
+      'Mejora: Semana empieza en lunes en el selector de días',
+      'Mejora: Formato "RiR 2" con espacio en todos los indicadores',
+    ],
+  },
+  {
     version: '2.2.0',
     date: '8 jun 2026',
     changes: [

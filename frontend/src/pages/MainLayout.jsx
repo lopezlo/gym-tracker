@@ -98,6 +98,12 @@ export default function MainLayout() {
     snapTo(tabIndex, shouldAnimate)
     setPillX(tabIndex, shouldAnimate)
     if (containerRef.current) containerRef.current.dataset.initialized = 'true'
+    // Reset wrapper transform when (re-)entering swipe tabs — navigateToSession() leaves a
+    // translateX on the wrapper; without this, the swipe container appears misaligned on return.
+    if (isSwipeTab && wrapperRef.current) {
+      wrapperRef.current.style.transform  = ''
+      wrapperRef.current.style.transition = ''
+    }
   }, [tabIndex, isSwipeTab]) // eslint-disable-line react-hooks/exhaustive-deps
 
   // ── Non-passive touch listeners ────────────────────────────────────────────
