@@ -361,18 +361,20 @@ export default function Session() {
   const [ending, setEnding]                 = useState(false)
   const [newSetId, setNewSetId]             = useState(null)
   const [timerAnchor, setTimerAnchor]       = useState(cached?.timerAnchor ?? null)
-  const [loadedTemplate, setLoadedTemplate] = useState(
-    () => location.state?.template ?? null
-  )
+  const [loadedTemplate, setLoadedTemplate] = useState(() => {
+    const fromState = location.state?.template ?? null
+    if (fromState) return fromState
+    return sessionCache[id]?.template ?? null  // restore after in-app navigation
+  })
 
   const sessionElapsed = useTimer(session?.started_at)
 
-  // Keep cache in sync whenever sets/timerAnchor change
+  // Keep cache in sync whenever sets/timerAnchor/template change
   useEffect(() => {
     if (sessionCache[id]) {
-      sessionCache[id] = { ...sessionCache[id], sets, timerAnchor }
+      sessionCache[id] = { ...sessionCache[id], sets, timerAnchor, template: loadedTemplate }
     }
-  }, [sets, timerAnchor])
+  }, [sets, timerAnchor, loadedTemplate])
 
   useEffect(() => {
     api.getSession(id)

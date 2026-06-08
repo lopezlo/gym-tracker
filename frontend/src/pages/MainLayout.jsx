@@ -78,13 +78,13 @@ export default function MainLayout() {
   useEffect(() => { tabIndexRef.current = tabIndex }, [tabIndex])
 
   // Snap container — 3 panels of 33.333% each
-  const snapTo = (idx, animate) => {
+  const snapTo = useCallback((idx, animate) => {
     if (!containerRef.current) return
     containerRef.current.style.transition = animate
       ? 'transform 280ms cubic-bezier(0.4,0,0.2,1)'
       : 'none'
     containerRef.current.style.transform = `translateX(${-(idx * 100) / 3}%)`
-  }
+  }, [])
 
   // Pill removed — no-op stub kept to avoid refactoring all call sites
   const setPillX = () => {}
@@ -106,12 +106,14 @@ export default function MainLayout() {
     if (!wrapper) return
 
     const onStart = (e) => {
+      // Defensive: reset container to correct panel at start of each gesture
+      // (guards against position drift from portal modal interactions)
+      snapTo(tabIndexRef.current, false)
       touchStartX.current  = e.touches[0].clientX
       touchStartY.current  = e.touches[0].clientY
       touchStartMs.current = Date.now()
       dirLocked.current    = null
       swipeActive.current  = false
-      if (containerRef.current) containerRef.current.style.transition = 'none'
     }
 
     const onMove = (e) => {
@@ -435,7 +437,7 @@ export default function MainLayout() {
               <Dashboard />
             </div>
             <div style={{ width: '33.333%', height: '100%', overflowY: 'auto', overflowX: 'hidden' }}>
-              <Planner />
+              <Planner onModalClose={() => snapTo(tabIndexRef.current, false)} />
             </div>
             <div style={{ width: '33.333%', height: '100%', overflowY: 'auto', overflowX: 'hidden' }}>
               <History />

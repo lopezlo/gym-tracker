@@ -210,7 +210,7 @@ function PlanEditor({ plan, userId, onSave, onClose }) {
 }
 
 // ── Main page ──────────────────────────────────────────────────────────────────
-export default function Planner() {
+export default function Planner({ onModalClose }) {
   const { user } = useApp()
   const [routines, setRoutines]         = useState([])
   const [plan, setPlan]                 = useState(null)
@@ -219,6 +219,14 @@ export default function Planner() {
   const [editingPlan, setEditingPlan]   = useState(false)
   const [deletingRoutine, setDeletingRoutine] = useState(null)
   const [deletingPlan, setDeletingPlan] = useState(false)
+
+  // Notify MainLayout to re-snap swipe container whenever any modal closes
+  const isModalOpen = !!(editingRoutine || editingPlan || deletingRoutine || deletingPlan)
+  const prevModalOpenRef = useRef(false)
+  useEffect(() => {
+    if (prevModalOpenRef.current && !isModalOpen) onModalClose?.()
+    prevModalOpenRef.current = isModalOpen
+  }, [isModalOpen, onModalClose])
 
   const todayIdx = new Date().getDay()
 

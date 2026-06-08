@@ -16,7 +16,7 @@ function fmtTime(mins) {
 }
 
 export default function History() {
-  const { user, statsCache, setStatsCache } = useApp()
+  const { user, statsCache, setStatsCache, activeSessionId } = useApp()
   const navigate = useNavigate()
   const scrollRef = useRef(null)
 
@@ -42,6 +42,17 @@ export default function History() {
       .catch(() => {})
       .finally(() => setLoading(false))
   }, [user?.id])
+
+  // Refetch when session ends (activeSessionId goes truthy → null)
+  const prevSessionIdRef = useRef(activeSessionId)
+  useEffect(() => {
+    const prev = prevSessionIdRef.current
+    prevSessionIdRef.current = activeSessionId
+    if (prev && !activeSessionId) {
+      loadStats()
+      setHistoryKey(k => k + 1)
+    }
+  }, [activeSessionId])
 
   const handleRefresh = useCallback(
     () => new Promise(() => window.location.reload()),

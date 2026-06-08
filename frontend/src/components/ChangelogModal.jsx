@@ -31,6 +31,15 @@ function ChangeEntry({ text }) {
 
 const CHANGELOG = [
   {
+    version: '2.1.3',
+    date: '8 jun 2026',
+    changes: [
+      'Fixed: Layout roto al cerrar modales en Planificador — el panel ya no se desplaza a posición intermedia',
+      'Fixed: Ejercicios planificados desaparecen al navegar dentro de la sesión — template ahora persiste en caché',
+      'Fixed: Historial muestra "en curso" tras finalizar una sesión — se refresca automáticamente al terminar',
+    ],
+  },
+  {
     version: '2.1.2',
     date: '7 jun 2026',
     changes: [
