@@ -32,14 +32,14 @@ function ChangeEntry({ text }) {
 const CHANGELOG = [
   {
     version: '2.1.2',
-    date: '8 jun 2026',
+    date: '7 jun 2026',
     changes: [
       'Fixed: Causa raíz de la pantalla en blanco — violación de Rules of Hooks en Dashboard (useRef y useCallback después de un early return)',
     ],
   },
   {
     version: '2.1.1',
-    date: '8 jun 2026',
+    date: '7 jun 2026',
     changes: [
       'Fixed: Pantalla en blanco al iniciar sesión con rutina cargada (Dumbbell no importado)',
       'Fixed: Doble navegación al iniciar sesión — el template de ejercicios ya no se pierde',
@@ -48,14 +48,14 @@ const CHANGELOG = [
   },
   {
     version: '2.1.0',
-    date: '8 jun 2026',
+    date: '7 jun 2026',
     changes: [
       'Nuevo: Pull-to-refresh — desliza hacia abajo en cualquier pantalla para recargar la app completa',
     ],
   },
   {
     version: '2.0.25',
-    date: '8 jun 2026',
+    date: '7 jun 2026',
     changes: [
       'Mejora: Menú más estrecho y centrado — 58% del ancho con mínimo de 250px',
       'Mejora: Eliminada la rallita deslizante bajo los iconos del menú',
@@ -63,7 +63,7 @@ const CHANGELOG = [
   },
   {
     version: '2.0.24',
-    date: '8 jun 2026',
+    date: '7 jun 2026',
     changes: [
       'Fixed: Desde Progreso, clic en el menú con entrenamiento activo ahora anima correctamente hasta la sesión',
     ],
