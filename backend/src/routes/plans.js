@@ -12,7 +12,8 @@ router.get('/', async (req, res) => {
     )
     if (!plan) return res.status(404).json({ error: 'No plan' })
     const { rows: exercises } = await pool.query(
-      `SELECT e.id, e.name, e.type
+      `SELECT e.id, e.name, e.type,
+              spe.sets, spe.weight, spe.reps_min, spe.reps_max
        FROM session_plan_exercises spe
        JOIN exercises e ON e.id = spe.exercise_id
        WHERE spe.plan_id = $1
@@ -39,9 +40,20 @@ router.put('/', async (req, res) => {
     )
     await client.query('DELETE FROM session_plan_exercises WHERE plan_id = $1', [plan.id])
     for (let i = 0; i < exercises.length; i++) {
+      const ex = exercises[i]
       await client.query(
-        'INSERT INTO session_plan_exercises (plan_id, exercise_id, "order") VALUES ($1, $2, $3)',
-        [plan.id, exercises[i].id, i]
+        `INSERT INTO session_plan_exercises
+           (plan_id, exercise_id, "order", sets, weight, reps_min, reps_max)
+         VALUES ($1, $2, $3, $4, $5, $6, $7)`,
+        [
+          plan.id,
+          ex.id,
+          i,
+          ex.sets    ?? 1,
+          ex.weight  ?? null,
+          ex.reps_min ?? null,
+          ex.reps_max ?? null,
+        ]
       )
     }
     await client.query('COMMIT')

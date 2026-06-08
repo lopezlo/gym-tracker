@@ -31,6 +31,12 @@ pool.query(`CREATE TABLE IF NOT EXISTS session_plan_exercises (
   exercise_id INTEGER NOT NULL REFERENCES exercises(id) ON DELETE CASCADE,
   "order"  INTEGER NOT NULL DEFAULT 0
 )`).catch(() => {})
+pool.query(`ALTER TABLE session_plan_exercises ADD COLUMN IF NOT EXISTS sets INTEGER DEFAULT 1`).catch(() => {})
+pool.query(`ALTER TABLE session_plan_exercises ADD COLUMN IF NOT EXISTS weight DECIMAL(6,2)`).catch(() => {})
+pool.query(`ALTER TABLE session_plan_exercises ADD COLUMN IF NOT EXISTS reps_min INTEGER`).catch(() => {})
+pool.query(`ALTER TABLE session_plan_exercises ADD COLUMN IF NOT EXISTS reps_max INTEGER`).catch(() => {})
+pool.query(`ALTER TABLE routine_exercises ADD COLUMN IF NOT EXISTS sets INTEGER DEFAULT 1`).catch(() => {})
+pool.query(`ALTER TABLE sets ADD COLUMN IF NOT EXISTS rir SMALLINT`).catch(() => {})
 
 const usersRouter    = require('./routes/users')
 const exercisesRouter = require('./routes/exercises')

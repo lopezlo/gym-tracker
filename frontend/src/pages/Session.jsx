@@ -1,4 +1,4 @@
-import { useState, useEffect, useRef, useMemo } from 'react'
+import { useState, useEffect, useRef, useMemo, useCallback } from 'react'
 import { useParams, useNavigate, useLocation } from 'react-router-dom'
 import { Plus, Trash2, Clock, Dumbbell, CheckCircle, ChevronRight, X } from 'lucide-react'
 import { api } from '../api/client'
@@ -42,7 +42,8 @@ function fmtSet(s) {
   const parts = []
   if (s.weight != null) parts.push(`${s.weight}kg`)
   if (s.reps != null) parts.push(`×${s.reps}`)
-  return parts.join(' ') || '—'
+  const main = parts.join(' ') || '—'
+  return s.rir != null ? `${main} · RiR${s.rir}` : main
 }
 
 function playAlert() {
@@ -119,15 +120,33 @@ function RestTimer({ lastSetAt }) {
 
 // ── Ghost Card (planned, not yet started) ─────────────────────────────────────
 function GhostCard({ exercise, onStart }) {
+  // Build target summary (from plan config)
+  const target = (() => {
+    const parts = []
+    if (exercise.sets > 1) parts.push(`${exercise.sets} series`)
+    if (exercise.type !== 'time') {
+      if (exercise.weight != null) parts.push(`${exercise.weight}kg`)
+      if (exercise.reps_min != null) {
+        parts.push(exercise.reps_min === exercise.reps_max || exercise.reps_max == null
+          ? `${exercise.reps_min} reps`
+          : `${exercise.reps_min}–${exercise.reps_max} reps`)
+      }
+    }
+    return parts.join(' · ')
+  })()
+
   return (
     <div className="bg-slate-800/50 border border-dashed border-slate-700 rounded-2xl p-4">
-      <div className="flex items-center gap-2 mb-3">
+      <div className="flex items-center gap-2 mb-1.5">
         {exercise.type === 'time'
           ? <Clock size={14} className="text-amber-400/50 flex-shrink-0" />
           : <Dumbbell size={14} className="text-indigo-400/50 flex-shrink-0" />}
         <h4 className="text-slate-500 font-semibold text-sm flex-1 truncate">{exercise.name}</h4>
         <span className="text-[10px] text-slate-600 flex-shrink-0 font-medium uppercase tracking-wide">planificado</span>
       </div>
+      {target && (
+        <p className="text-slate-600 text-xs mb-3 pl-5">{target}</p>
+      )}
       <button
         onClick={() => onStart(exercise)}
         className="w-full flex items-center justify-center gap-1.5 py-2 rounded-xl border border-dashed border-slate-700 hover:border-indigo-500 hover:bg-indigo-500/10 text-slate-600 hover:text-indigo-400 active:bg-indigo-500/20 transition-colors text-sm"
@@ -186,37 +205,53 @@ function ExerciseCard({ exId, group, onAddSet, onDeleteSet, newSetId }) {
   )
 }
 
+const RIR_LABELS = ['Al fallo', '1 antes del fallo', '2 antes del fallo', '3 antes del fallo']
+
 // ── Add Set Sheet ──────────────────────────────────────────────────────────────
 function AddSetSheet({ exercise, sessionId, sessionSets, onAdded, onClose }) {
   const { user } = useApp()
   const [weight, setWeight]     = useState('')
   const [reps, setReps]         = useState('')
   const [duration, setDuration] = useState('')
+  const [rir, setRir]           = useState(null)   // null | 0 | 1 | 2 | 3
   const [adding, setAdding]     = useState(false)
+
+  const { rirEnabled = false } = useMemo(() => {
+    try { return JSON.parse(localStorage.getItem('gym_settings')) ?? {} } catch { return {} }
+  }, [])
 
   const setsForEx = sessionSets.filter(s => s.exercise_id === exercise.id)
 
-  // Pre-fill from last set of this exercise
+  // Pre-fill: last in-session set → plan target → historical last set
   useEffect(() => {
     const lastInSession = [...setsForEx].reverse()[0]
     if (lastInSession) {
       if (exercise.type === 'reps') {
         setWeight(lastInSession.weight != null ? String(lastInSession.weight) : '')
         setReps(lastInSession.reps != null ? String(lastInSession.reps) : '')
+        if (lastInSession.rir != null) setRir(lastInSession.rir)
       } else {
         setDuration(lastInSession.duration != null ? String(lastInSession.duration / 60) : '')
       }
-    } else {
-      api.getLastSet(exercise.id, user.id).then(last => {
-        if (!last) return
-        if (exercise.type === 'reps') {
-          setWeight(last.weight != null ? String(last.weight) : '')
-          setReps(last.reps != null ? String(last.reps) : '')
-        } else {
-          setDuration(last.duration != null ? String(last.duration / 60) : '')
-        }
-      }).catch(() => {})
+      return
     }
+    // No in-session history — prefer plan target, then historical
+    const hasPlanTarget = exercise.weight != null || exercise.reps_min != null
+    if (hasPlanTarget && exercise.type === 'reps') {
+      if (exercise.weight != null) setWeight(String(exercise.weight))
+      if (exercise.reps_min != null) setReps(String(exercise.reps_min))
+      return
+    }
+    api.getLastSet(exercise.id, user.id).then(last => {
+      if (!last) return
+      if (exercise.type === 'reps') {
+        setWeight(last.weight != null ? String(last.weight) : '')
+        setReps(last.reps != null ? String(last.reps) : '')
+        if (last.rir != null) setRir(last.rir)
+      } else {
+        setDuration(last.duration != null ? String(last.duration / 60) : '')
+      }
+    }).catch(() => {})
   }, [exercise.id])
 
   const handleAdd = async () => {
@@ -224,8 +259,9 @@ function AddSetSheet({ exercise, sessionId, sessionSets, onAdded, onClose }) {
     try {
       const payload = { exercise_id: exercise.id }
       if (exercise.type === 'reps') {
-        if (weight)   payload.weight   = parseFloat(weight)
-        if (reps)     payload.reps     = parseInt(reps)
+        if (weight)   payload.weight = parseFloat(weight)
+        if (reps)     payload.reps   = parseInt(reps)
+        if (rirEnabled && rir !== null) payload.rir = rir
       } else {
         if (duration) payload.duration = Math.round(parseFloat(duration) * 60)
       }
@@ -234,19 +270,38 @@ function AddSetSheet({ exercise, sessionId, sessionSets, onAdded, onClose }) {
     } catch (e) { alert(e.message); setAdding(false) }
   }
 
+  // Plan target hint (shown if exercise has configured targets)
+  const planHint = (() => {
+    if (exercise.type === 'time' || setsForEx.length > 0) return null
+    const parts = []
+    if (exercise.weight != null) parts.push(`${exercise.weight}kg`)
+    if (exercise.reps_min != null)
+      parts.push(exercise.reps_min === exercise.reps_max || exercise.reps_max == null
+        ? `${exercise.reps_min} reps`
+        : `${exercise.reps_min}–${exercise.reps_max} reps`)
+    return parts.length ? parts.join(' × ') : null
+  })()
+
   return (
     <BottomSheet onClose={onClose} locked={adding}>
       {() => (
         <div className="px-5 pb-8 pt-2 space-y-4">
           {/* Title */}
-          <div className="flex items-center gap-2.5">
-            {exercise.type === 'time'
-              ? <Clock size={16} className="text-amber-400 flex-shrink-0" />
-              : <Dumbbell size={16} className="text-indigo-400 flex-shrink-0" />}
-            <h2 className="text-white font-bold text-base flex-1 truncate">{exercise.name}</h2>
-            <span className="text-slate-500 text-sm flex-shrink-0">
-              Serie {setsForEx.length + 1}
-            </span>
+          <div>
+            <div className="flex items-center gap-2.5">
+              {exercise.type === 'time'
+                ? <Clock size={16} className="text-amber-400 flex-shrink-0" />
+                : <Dumbbell size={16} className="text-indigo-400 flex-shrink-0" />}
+              <h2 className="text-white font-bold text-base flex-1 truncate">{exercise.name}</h2>
+              <span className="text-slate-500 text-sm flex-shrink-0">
+                Serie {setsForEx.length + 1}
+              </span>
+            </div>
+            {planHint && (
+              <p className="text-slate-600 text-xs mt-1 pl-6">
+                Objetivo: <span className="text-slate-500">{planHint}</span>
+              </p>
+            )}
           </div>
 
           {/* Previous sets chips (reference) */}
@@ -321,6 +376,31 @@ function AddSetSheet({ exercise, sessionId, sessionSets, onAdded, onClose }) {
                   className="w-10 h-10 bg-slate-700 hover:bg-slate-600 rounded-xl text-white font-bold flex-shrink-0 transition-colors"
                 >+</button>
               </div>
+            </div>
+          )}
+
+          {/* RiR selector (only when enabled and exercise is reps-based) */}
+          {rirEnabled && exercise.type === 'reps' && (
+            <div className="space-y-2">
+              <label className="text-xs text-slate-400 font-medium">Repeticiones en Reserva</label>
+              <div className="grid grid-cols-4 gap-1.5">
+                {[0, 1, 2, 3].map(n => (
+                  <button
+                    key={n}
+                    onClick={() => setRir(rir === n ? null : n)}
+                    className={`py-2.5 rounded-xl text-sm font-bold transition-colors ${
+                      rir === n
+                        ? 'bg-indigo-600 text-white'
+                        : 'bg-slate-700 text-slate-400 hover:bg-slate-600'
+                    }`}
+                  >
+                    RiR{n}
+                  </button>
+                ))}
+              </div>
+              {rir !== null && (
+                <p className="text-slate-600 text-xs">{RIR_LABELS[rir]}</p>
+              )}
             </div>
           )}
 

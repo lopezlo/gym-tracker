@@ -48,7 +48,7 @@ export default function SettingsSheet({ onClose }) {
   const [deleting,      setDeleting]      = useState(false)
   const [downloaded,    setDownloaded]    = useState(false)
 
-  const { restAlertEnabled = false, restDuration = 90 } = settings
+  const { restAlertEnabled = false, restDuration = 90, rirEnabled = false } = settings
 
   const update = (key, value) => {
     const next = { ...settings, [key]: value }
@@ -212,6 +212,44 @@ export default function SettingsSheet({ onClose }) {
                         </button>
                       ))}
                     </div>
+                  </div>
+                )}
+              </div>
+            </div>
+
+            {/* ── RiR ── */}
+            <div>
+              <p className="text-slate-400 text-xs font-semibold uppercase tracking-wider mb-3">Entrenamiento</p>
+              <div className="bg-slate-700/50 rounded-2xl overflow-hidden">
+                <div className="flex items-center justify-between px-4 py-3.5">
+                  <div className="flex-1 min-w-0 pr-3">
+                    <p className="text-white text-sm font-medium">Repeticiones en Reserva (RiR)</p>
+                    <p className="text-slate-500 text-xs mt-0.5">Indica el esfuerzo por serie al entrenar</p>
+                  </div>
+                  <button
+                    onClick={() => update('rirEnabled', !rirEnabled)}
+                    className={`relative w-11 h-6 rounded-full transition-colors flex-shrink-0 ${rirEnabled ? 'bg-indigo-600' : 'bg-slate-600'}`}
+                  >
+                    <span className={`absolute top-0.5 w-5 h-5 bg-white rounded-full shadow transition-all ${rirEnabled ? 'left-[22px]' : 'left-0.5'}`} />
+                  </button>
+                </div>
+                {rirEnabled && (
+                  <div className="px-4 pb-4 border-t border-slate-600/50 pt-3 space-y-3">
+                    <p className="text-slate-400 text-xs">Por serie, indica cuántas repeticiones te quedaban antes del fallo.</p>
+                    <div className="grid grid-cols-4 gap-1.5">
+                      {[
+                        { n: 0, label: 'Al fallo' },
+                        { n: 1, label: '1 antes' },
+                        { n: 2, label: '2 antes' },
+                        { n: 3, label: '3 antes' },
+                      ].map(({ n, label }) => (
+                        <div key={n} className="bg-slate-600/60 rounded-xl py-2 text-center">
+                          <p className="text-indigo-400 font-bold text-sm">RiR{n}</p>
+                          <p className="text-slate-500 text-[10px] mt-0.5">{label}</p>
+                        </div>
+                      ))}
+                    </div>
+                    <p className="text-slate-500 text-xs">También activa el <span className="text-white">rango de repeticiones</span> en la pre-planificación.</p>
                   </div>
                 )}
               </div>

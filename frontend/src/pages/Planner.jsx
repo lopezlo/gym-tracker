@@ -1,29 +1,153 @@
 import { useState, useEffect, useRef, useCallback } from 'react'
-import { Plus, Trash2, Edit2, BookOpen, Dumbbell, Clock, X } from 'lucide-react'
+import { Plus, Trash2, Edit2, BookOpen, Dumbbell, Clock, X, Minus } from 'lucide-react'
 import { api } from '../api/client'
 import { useApp } from '../context/AppContext'
 import BottomSheet from '../components/BottomSheet'
 import ExerciseSelector from '../components/ExerciseSelector'
 import ConfirmModal from '../components/ConfirmModal'
 import PullToRefresh from '../components/PullToRefresh'
+import { getSettings } from '../components/SettingsSheet'
 
 const DAYS      = ['D', 'L', 'M', 'X', 'J', 'V', 'S']
 const DAY_NAMES = ['Domingo', 'Lunes', 'Martes', 'Miércoles', 'Jueves', 'Viernes', 'Sábado']
 
-// ── Inline exercise row inside editors ────────────────────────────────────────
-function ExItem({ ex, onRemove }) {
+// ── Tiny stepper used inside exercise config rows ─────────────────────────────
+function Stepper({ value, onChange, min = 1, max = 99, step = 1, decimals = false, label, wide = false }) {
+  const dec = () => {
+    const v = decimals ? parseFloat(value) || 0 : parseInt(value) || 0
+    const next = Math.max(min, v - step)
+    onChange(decimals ? Math.round(next * 2) / 2 : next)
+  }
+  const inc = () => {
+    const v = decimals ? parseFloat(value) || 0 : parseInt(value) || 0
+    const next = Math.min(max, v + step)
+    onChange(decimals ? Math.round(next * 2) / 2 : next)
+  }
   return (
-    <div className="flex items-center gap-3 py-2.5 px-3 bg-slate-700/70 rounded-xl">
-      {ex.type === 'time'
+    <div className="flex items-center gap-1">
+      <button onClick={dec}
+        className="w-6 h-6 bg-slate-600 hover:bg-slate-500 rounded-lg text-white text-xs font-bold flex items-center justify-center flex-shrink-0 transition-colors">
+        −
+      </button>
+      <span className={`text-white text-xs font-semibold text-center flex-shrink-0 ${wide ? 'w-14' : 'w-8'}`}>
+        {value}{label}
+      </span>
+      <button onClick={inc}
+        className="w-6 h-6 bg-slate-600 hover:bg-slate-500 rounded-lg text-white text-xs font-bold flex items-center justify-center flex-shrink-0 transition-colors">
+        +
+      </button>
+    </div>
+  )
+}
+
+// ── Routine exercise row (with sets stepper) ──────────────────────────────────
+function RoutineExItem({ ex, onRemove, onUpdate }) {
+  const isTime = ex.type === 'time'
+  return (
+    <div className="bg-slate-700/70 rounded-xl px-3 py-2.5 flex items-center gap-2">
+      {isTime
         ? <Clock size={14} className="text-amber-400 flex-shrink-0" />
         : <Dumbbell size={14} className="text-indigo-400 flex-shrink-0" />}
       <span className="text-white text-sm flex-1 truncate">{ex.name}</span>
+      <Stepper
+        value={ex.sets ?? 1}
+        onChange={v => onUpdate(ex.id, 'sets', v)}
+        min={1} max={20} label="×"
+      />
       <button
         onClick={() => onRemove(ex.id)}
-        className="p-1 text-slate-500 hover:text-red-400 transition-colors flex-shrink-0"
+        className="p-1 text-slate-500 hover:text-red-400 transition-colors flex-shrink-0 ml-1"
       >
         <X size={14} />
       </button>
+    </div>
+  )
+}
+
+// ── Plan exercise row (sets + weight + reps/range) ────────────────────────────
+function PlanExItem({ ex, rirEnabled, onRemove, onUpdate }) {
+  const isTime = ex.type === 'time'
+  const sets     = ex.sets ?? 1
+  const weight   = ex.weight ?? null
+  const repsMin  = ex.reps_min ?? 8
+  const repsMax  = ex.reps_max ?? (rirEnabled ? 12 : repsMin)
+
+  return (
+    <div className="bg-slate-700/70 rounded-xl overflow-hidden">
+      {/* Name row */}
+      <div className="flex items-center gap-2.5 px-3 pt-2.5 pb-1.5">
+        {isTime
+          ? <Clock size={14} className="text-amber-400 flex-shrink-0" />
+          : <Dumbbell size={14} className="text-indigo-400 flex-shrink-0" />}
+        <span className="text-white text-sm flex-1 truncate">{ex.name}</span>
+        <button
+          onClick={() => onRemove(ex.id)}
+          className="p-1 text-slate-500 hover:text-red-400 transition-colors flex-shrink-0"
+        >
+          <X size={14} />
+        </button>
+      </div>
+
+      {/* Config row */}
+      <div className="flex flex-wrap items-center gap-x-3 gap-y-1.5 px-3 pb-2.5">
+        {/* Sets */}
+        <div className="flex items-center gap-1.5">
+          <span className="text-slate-500 text-[11px]">Series</span>
+          <Stepper value={sets} onChange={v => onUpdate(ex.id, 'sets', v)} min={1} max={20} />
+        </div>
+
+        {/* Weight (reps exercises only) */}
+        {!isTime && (
+          <div className="flex items-center gap-1.5">
+            <span className="text-slate-500 text-[11px]">Peso</span>
+            {weight === null ? (
+              <button
+                onClick={() => onUpdate(ex.id, 'weight', 20)}
+                className="text-[11px] text-indigo-400 hover:text-indigo-300 transition-colors px-1.5 py-0.5 bg-indigo-500/10 rounded-lg"
+              >+ Añadir</button>
+            ) : (
+              <div className="flex items-center gap-1">
+                <Stepper
+                  value={weight}
+                  onChange={v => onUpdate(ex.id, 'weight', v === 0 ? null : v)}
+                  min={0} max={500} step={2.5} decimals wide
+                  label="kg"
+                />
+              </div>
+            )}
+          </div>
+        )}
+
+        {/* Reps — single value (no RiR) */}
+        {!isTime && !rirEnabled && (
+          <div className="flex items-center gap-1.5">
+            <span className="text-slate-500 text-[11px]">Reps</span>
+            <Stepper
+              value={repsMin}
+              onChange={v => { onUpdate(ex.id, 'reps_min', v); onUpdate(ex.id, 'reps_max', v) }}
+              min={1} max={99}
+            />
+          </div>
+        )}
+
+        {/* Reps range (RiR mode) */}
+        {!isTime && rirEnabled && (
+          <div className="flex items-center gap-1.5">
+            <span className="text-slate-500 text-[11px]">Reps</span>
+            <Stepper
+              value={repsMin}
+              onChange={v => onUpdate(ex.id, 'reps_min', Math.min(v, repsMax))}
+              min={1} max={99}
+            />
+            <span className="text-slate-600 text-[11px]">–</span>
+            <Stepper
+              value={repsMax}
+              onChange={v => onUpdate(ex.id, 'reps_max', Math.max(v, repsMin))}
+              min={1} max={99}
+            />
+          </div>
+        )}
+      </div>
     </div>
   )
 }
@@ -32,7 +156,9 @@ function ExItem({ ex, onRemove }) {
 function RoutineEditor({ routine, userId, onSave, onClose }) {
   const [name, setName]           = useState(routine?.name ?? '')
   const [days, setDays]           = useState(routine?.days ?? [])
-  const [exercises, setExercises] = useState(routine?.exercises ?? [])
+  const [exercises, setExercises] = useState(
+    () => (routine?.exercises ?? []).map(e => ({ ...e, sets: e.sets ?? 1 }))
+  )
   const [showSelector, setShowSelector] = useState(false)
   const [saving, setSaving]       = useState(false)
 
@@ -41,9 +167,12 @@ function RoutineEditor({ routine, userId, onSave, onClose }) {
 
   const handleSelect = (ex) => {
     if (!exercises.find(e => e.id === ex.id))
-      setExercises(prev => [...prev, { id: ex.id, name: ex.name, type: ex.type }])
+      setExercises(prev => [...prev, { id: ex.id, name: ex.name, type: ex.type, sets: 1 }])
     setShowSelector(false)
   }
+
+  const handleUpdate = (id, field, value) =>
+    setExercises(prev => prev.map(e => e.id === id ? { ...e, [field]: value } : e))
 
   const handleSave = async () => {
     if (!name.trim() || exercises.length === 0) return
@@ -101,10 +230,11 @@ function RoutineEditor({ routine, userId, onSave, onClose }) {
               </div>
               <div className="space-y-2">
                 {exercises.map(ex => (
-                  <ExItem
+                  <RoutineExItem
                     key={ex.id}
                     ex={ex}
                     onRemove={id => setExercises(prev => prev.filter(e => e.id !== id))}
+                    onUpdate={handleUpdate}
                   />
                 ))}
                 <button
@@ -141,15 +271,28 @@ function RoutineEditor({ routine, userId, onSave, onClose }) {
 
 // ── Plan editor sheet ──────────────────────────────────────────────────────────
 function PlanEditor({ plan, userId, onSave, onClose }) {
-  const [exercises, setExercises] = useState(plan?.exercises ?? [])
+  const rirEnabled = getSettings().rirEnabled ?? false
+
+  const initExercise = (ex) => ({
+    id: ex.id, name: ex.name, type: ex.type,
+    sets:     ex.sets     ?? 1,
+    weight:   ex.weight   ?? null,
+    reps_min: ex.reps_min ?? 8,
+    reps_max: ex.reps_max ?? (rirEnabled ? 12 : 8),
+  })
+
+  const [exercises, setExercises] = useState(() => (plan?.exercises ?? []).map(initExercise))
   const [showSelector, setShowSelector] = useState(false)
   const [saving, setSaving]       = useState(false)
 
   const handleSelect = (ex) => {
     if (!exercises.find(e => e.id === ex.id))
-      setExercises(prev => [...prev, { id: ex.id, name: ex.name, type: ex.type }])
+      setExercises(prev => [...prev, initExercise({ id: ex.id, name: ex.name, type: ex.type })])
     setShowSelector(false)
   }
+
+  const handleUpdate = (id, field, value) =>
+    setExercises(prev => prev.map(e => e.id === id ? { ...e, [field]: value } : e))
 
   const handleSave = async () => {
     if (exercises.length === 0) return
@@ -166,16 +309,18 @@ function PlanEditor({ plan, userId, onSave, onClose }) {
             <div>
               <h2 className="text-white font-bold text-lg">Próximo entrenamiento</h2>
               <p className="text-slate-400 text-sm mt-1">
-                Define qué ejercicios harás. Se cargará al empezar y se consumirá automáticamente.
+                Configura ejercicios, series, peso y repeticiones para tu próxima sesión.
               </p>
             </div>
 
             <div className="space-y-2">
               {exercises.map(ex => (
-                <ExItem
+                <PlanExItem
                   key={ex.id}
                   ex={ex}
+                  rirEnabled={rirEnabled}
                   onRemove={id => setExercises(prev => prev.filter(e => e.id !== id))}
+                  onUpdate={handleUpdate}
                 />
               ))}
               <button
@@ -207,6 +352,20 @@ function PlanEditor({ plan, userId, onSave, onClose }) {
       )}
     </>
   )
+}
+
+// ── Helper: compact plan exercise summary ─────────────────────────────────────
+function planExSummary(ex) {
+  const parts = [`${ex.sets ?? 1}×`]
+  if (ex.type !== 'time') {
+    if (ex.weight) parts.push(`${ex.weight}kg`)
+    const min = ex.reps_min, max = ex.reps_max
+    if (min != null && max != null)
+      parts.push(min === max ? `${min} reps` : `${min}–${max} reps`)
+    else if (min != null)
+      parts.push(`${min} reps`)
+  }
+  return parts.join(' ')
 }
 
 // ── Main page ──────────────────────────────────────────────────────────────────
@@ -315,7 +474,8 @@ export default function Planner({ onModalClose }) {
                     {ex.type === 'time'
                       ? <Clock size={13} className="text-amber-400 flex-shrink-0" />
                       : <Dumbbell size={13} className="text-indigo-400 flex-shrink-0" />}
-                    <span className="text-slate-300 text-sm truncate">{ex.name}</span>
+                    <span className="text-slate-300 text-sm flex-1 truncate">{ex.name}</span>
+                    <span className="text-slate-600 text-xs flex-shrink-0">{planExSummary(ex)}</span>
                   </div>
                 ))}
               </div>

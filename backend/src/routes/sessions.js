@@ -104,7 +104,7 @@ router.post('/:id/end', async (req, res) => {
 })
 
 router.post('/:id/sets', async (req, res) => {
-  const { exercise_id, weight, reps, duration } = req.body
+  const { exercise_id, weight, reps, duration, rir } = req.body
   if (!exercise_id) return res.status(400).json({ error: 'exercise_id required' })
   try {
     const { rows: [{ max_order }] } = await pool.query(
@@ -112,9 +112,9 @@ router.post('/:id/sets', async (req, res) => {
       [req.params.id]
     )
     const { rows: [set] } = await pool.query(`
-      INSERT INTO sets (session_id, exercise_id, weight, reps, duration, set_order)
-      VALUES ($1, $2, $3, $4, $5, $6) RETURNING *
-    `, [req.params.id, exercise_id, weight ?? null, reps ?? null, duration ?? null, Number(max_order) + 1])
+      INSERT INTO sets (session_id, exercise_id, weight, reps, duration, set_order, rir)
+      VALUES ($1, $2, $3, $4, $5, $6, $7) RETURNING *
+    `, [req.params.id, exercise_id, weight ?? null, reps ?? null, duration ?? null, Number(max_order) + 1, rir ?? null])
 
     const { rows: [result] } = await pool.query(`
       SELECT st.*, e.name AS exercise_name, e.type AS exercise_type

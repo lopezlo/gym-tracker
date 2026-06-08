@@ -12,7 +12,7 @@ router.get('/', async (req, res) => {
     )
     for (const r of routines) {
       const { rows } = await pool.query(
-        `SELECT e.id, e.name, e.type
+        `SELECT e.id, e.name, e.type, re.sets
          FROM routine_exercises re
          JOIN exercises e ON e.id = re.exercise_id
          WHERE re.routine_id = $1
@@ -37,8 +37,8 @@ router.post('/', async (req, res) => {
     )
     for (let i = 0; i < exercises.length; i++) {
       await client.query(
-        'INSERT INTO routine_exercises (routine_id, exercise_id, "order") VALUES ($1, $2, $3)',
-        [r.id, exercises[i].id, i]
+        'INSERT INTO routine_exercises (routine_id, exercise_id, "order", sets) VALUES ($1, $2, $3, $4)',
+        [r.id, exercises[i].id, i, exercises[i].sets ?? 1]
       )
     }
     await client.query('COMMIT')
@@ -64,8 +64,8 @@ router.put('/:id', async (req, res) => {
     await client.query('DELETE FROM routine_exercises WHERE routine_id = $1', [r.id])
     for (let i = 0; i < exercises.length; i++) {
       await client.query(
-        'INSERT INTO routine_exercises (routine_id, exercise_id, "order") VALUES ($1, $2, $3)',
-        [r.id, exercises[i].id, i]
+        'INSERT INTO routine_exercises (routine_id, exercise_id, "order", sets) VALUES ($1, $2, $3, $4)',
+        [r.id, exercises[i].id, i, exercises[i].sets ?? 1]
       )
     }
     await client.query('COMMIT')

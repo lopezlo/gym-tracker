@@ -31,6 +31,18 @@ function ChangeEntry({ text }) {
 
 const CHANGELOG = [
   {
+    version: '2.2.0',
+    date: '8 jun 2026',
+    changes: [
+      'Nuevo: Repeticiones en Reserva (RiR) — actívalo en Ajustes para indicar el esfuerzo por serie (RiR0 = al fallo, RiR3 = 3 reps en reserva)',
+      'Nuevo: Pre-planificación con series, peso y repeticiones por ejercicio — configura el peso objetivo y reps antes de entrenar',
+      'Nuevo: Rango de repeticiones en la pre-plan cuando RiR está activo (ej: 8–12 reps)',
+      'Nuevo: Rutinas con número de series por ejercicio',
+      'Mejora: Las tarjetas "planificado" muestran el objetivo configurado (series, peso, reps)',
+      'Mejora: Al empezar un ejercicio planificado, el peso y reps se pre-rellenan desde el objetivo',
+    ],
+  },
+  {
     version: '2.1.3',
     date: '8 jun 2026',
     changes: [
