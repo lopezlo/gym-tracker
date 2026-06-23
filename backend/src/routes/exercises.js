@@ -2,6 +2,12 @@ const express = require('express')
 const pool = require('../db')
 const router = express.Router()
 
+// Always expose `categories` as an array (fall back to legacy single `category`)
+const normalizeCats = (rows) => {
+  rows.forEach(r => { if (!r.categories) r.categories = r.category ? [r.category] : [] })
+  return rows
+}
+
 router.get('/', async (req, res) => {
   const { user_id } = req.query
   try {
@@ -14,22 +20,24 @@ router.get('/', async (req, res) => {
         GROUP BY e.id
         ORDER BY use_count DESC, e.name ASC
       `, [user_id])
-      res.json(rows)
+      res.json(normalizeCats(rows))
     } else {
       const { rows } = await pool.query('SELECT *, 0 as use_count FROM exercises ORDER BY name')
-      res.json(rows)
+      res.json(normalizeCats(rows))
     }
   } catch (e) { res.status(500).json({ error: e.message }) }
 })
 
 router.post('/', async (req, res) => {
-  const { name, type = 'reps', category = null } = req.body
+  const { name, type = 'reps', category = null, categories = null } = req.body
   if (!name?.trim()) return res.status(400).json({ error: 'Name required' })
   if (!['reps', 'time'].includes(type)) return res.status(400).json({ error: 'type must be reps or time' })
+  // Accept either `categories` (array) or legacy `category` (single); keep both in sync
+  const cats = Array.isArray(categories) ? categories : (category ? [category] : [])
   try {
     const { rows } = await pool.query(
-      'INSERT INTO exercises (name, type, category) VALUES ($1, $2, $3) RETURNING *',
-      [name.trim(), type, category ?? null]
+      'INSERT INTO exercises (name, type, category, categories) VALUES ($1, $2, $3, $4) RETURNING *',
+      [name.trim(), type, cats[0] ?? null, cats]
     )
     res.status(201).json(rows[0])
   } catch (e) {
@@ -45,11 +53,15 @@ router.post('/', async (req, res) => {
 })
 
 router.patch('/:id', async (req, res) => {
-  const { category } = req.body
+  const { category, categories } = req.body
+  // Prefer the array; fall back to legacy single. Keep `category` = first element.
+  const cats = categories !== undefined
+    ? (Array.isArray(categories) ? categories : [])
+    : (category ? [category] : [])
   try {
     const { rows: [ex] } = await pool.query(
-      'UPDATE exercises SET category = $1 WHERE id = $2 RETURNING *',
-      [category ?? null, req.params.id]
+      'UPDATE exercises SET categories = $1, category = $2 WHERE id = $3 RETURNING *',
+      [cats, cats[0] ?? null, req.params.id]
     )
     if (!ex) return res.status(404).json({ error: 'Exercise not found' })
     res.json(ex)

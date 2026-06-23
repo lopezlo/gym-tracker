@@ -39,6 +39,41 @@ pool.query(`ALTER TABLE session_plan_exercises ADD COLUMN IF NOT EXISTS reps_max
 pool.query(`ALTER TABLE routine_exercises ADD COLUMN IF NOT EXISTS sets INTEGER DEFAULT 1`).catch(() => {})
 pool.query(`ALTER TABLE sets ADD COLUMN IF NOT EXISTS rir SMALLINT`).catch(() => {})
 
+// ── Multi-category support + auto-preselection ──────────────────────────────────
+const CATEGORY_KEYWORDS = {
+  pecho:   ['press banca', 'banca', 'pecho', 'apertura', 'aperturas', 'fondos', 'pec deck', 'contractor', 'pullover', 'flexion', 'push up', 'press inclinado', 'press declinado'],
+  espalda: ['dominada', 'dominadas', 'jalon', 'remo', 'espalda', 'peso muerto', 'pull up', 'pull-up', 'hiperextension', 'face pull', 'trapecio', 'dorsal', 'encogimiento', 'pajaro'],
+  piernas: ['sentadilla', 'squat', 'prensa', 'zancada', 'femoral', 'cuadriceps', 'gemelo', 'gemelos', 'lunge', 'hip thrust', 'glute', 'gluteo', 'gluteos', 'aductor', 'abductor', 'pantorrilla', 'bulgara', 'bulgaras', 'step up', 'peso muerto', 'extension de cuadriceps', 'curl femoral'],
+  hombros: ['hombro', 'hombros', 'press militar', 'militar', 'elevacion lateral', 'elevacion frontal', 'deltoide', 'deltoides', 'arnold'],
+  brazos:  ['biceps', 'triceps', 'curl de biceps', 'curl biceps', 'martillo', 'frances', 'francesa', 'extension de triceps', 'antebrazo', 'predicador', 'concentrado', 'jalon de triceps'],
+  core:    ['abdominal', 'abdominales', 'plancha', 'core', 'crunch', 'oblicuo', 'oblicuos', 'rueda abdominal', 'ab wheel', 'elevacion de piernas', 'russian twist', 'hollow'],
+  cardio:  ['cardio', 'correr', 'cinta', 'bici', 'bicicleta', 'eliptica', 'comba', 'hiit', 'sprint', 'caminar', 'escaladora', 'spinning', 'remo ergometro'],
+}
+
+const stripAccents = (s) => s.normalize('NFD').replace(/[̀-ͯ]/g, '').toLowerCase()
+
+function categorizeByName(name) {
+  const n = stripAccents(name)
+  const cats = []
+  for (const [cat, kws] of Object.entries(CATEGORY_KEYWORDS)) {
+    if (kws.some(kw => n.includes(kw))) cats.push(cat)
+  }
+  return cats.length ? cats : ['otro']
+}
+
+async function migrateCategories() {
+  await pool.query(`ALTER TABLE exercises ADD COLUMN IF NOT EXISTS categories TEXT[]`)
+  // Backfill array from legacy single category
+  await pool.query(`UPDATE exercises SET categories = ARRAY[category] WHERE categories IS NULL AND category IS NOT NULL`)
+  // Auto-preselect categories for still-uncategorized exercises (one-time; cheap no-op afterwards)
+  const { rows } = await pool.query(`SELECT id, name FROM exercises WHERE categories IS NULL OR cardinality(categories) = 0`)
+  for (const ex of rows) {
+    const cats = categorizeByName(ex.name)
+    await pool.query(`UPDATE exercises SET categories = $1, category = $2 WHERE id = $3`, [cats, cats[0] ?? null, ex.id])
+  }
+}
+migrateCategories().catch(() => {})
+
 const usersRouter    = require('./routes/users')
 const exercisesRouter = require('./routes/exercises')
 const sessionsRouter = require('./routes/sessions')
